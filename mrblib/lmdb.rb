@@ -1,8 +1,14 @@
 module MDB
   class Env
-    def transaction
+    def self.new(*args)
+      instance = super()
+      instance.open(*args)
+      instance
+    end
+
+    def transaction(*args)
       txn = nil
-      txn = Txn.new self
+      txn = Txn.new(self, *args)
       yield txn
       txn.commit
       self
@@ -28,18 +34,31 @@ module MDB
 
     def [](key)
       data = nil
-      @env.transaction do |txn|
+      @env.transaction(MDB::RDONLY) do |txn|
         data = MDB.get(txn, @dbi, key)
       end
       data
     end
 
     def []=(key, value)
-      ret = nil
       @env.transaction do |txn|
-        ret = MDB.put(txn, @dbi, key, value)
+        MDB.put(txn, @dbi, key, value)
       end
-      ret
+      self
+    end
+
+    def del(*args)
+      @env.transaction do |txn|
+        MDB.del(txn, @dbi, *args)
+      end
+      self
+    end
+
+    def transaction(*args)
+      @env.transaction(*args) do |txn|
+        yield txn, @dbi
+      end
+      self
     end
   end
 end

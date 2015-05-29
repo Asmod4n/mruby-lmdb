@@ -63,11 +63,11 @@ static mrb_value
 mrb_mdb_txn_begin(mrb_state *mrb, mrb_value self)
 {
   MDB_env *env;
-  MDB_txn *parent = NULL;
   mrb_int flags = 0;
+  MDB_txn *parent = NULL;
   MDB_txn *txn;
 
-  mrb_get_args (mrb, "d|id", &env, &mdb_env_type, &flags, &parent, &mdb_txn_type);
+  mrb_get_args(mrb, "d|id", &env, &mdb_env_type, &flags, &parent, &mdb_txn_type);
 
   if (flags < 0 ||flags > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
@@ -175,8 +175,7 @@ mrb_mdb_get(mrb_state *mrb, mrb_value self)
   if (dbi < 0 ||dbi > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
 
-  key_obj = mrb_str_to_str(mrb, key_obj);
-
+  key_obj = mrb_str_to_str(mrb, key_obj)
   key.mv_size = RSTRING_LEN(key_obj);
   key.mv_data = RSTRING_PTR(key_obj);
 
@@ -199,8 +198,7 @@ mrb_mdb_put(mrb_state *mrb, mrb_value self)
   mrb_int dbi;
   mrb_value key_obj, data_obj;
   mrb_int flags = 0;
-  MDB_val key;
-  MDB_val data;
+  MDB_val key, data;
 
   mrb_get_args(mrb, "dioo|i", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj, &flags);
 
@@ -219,6 +217,37 @@ mrb_mdb_put(mrb_state *mrb, mrb_value self)
   data.mv_data = RSTRING_PTR(data_obj);
 
   int rc = mdb_put(txn, (MDB_dbi) dbi, &key, &data, (unsigned int) flags);
+
+  if(rc != 0)
+    mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
+
+  return self;
+}
+
+static mrb_value
+mrb_mdb_del(mrb_state *mrb, mrb_value self)
+{
+  MDB_txn *txn;
+  mrb_int dbi;
+  mrb_value key_obj, data_obj;
+  MDB_val key, data;
+
+  int args = mrb_get_args(mrb, "dio|o", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj);
+
+  if (dbi < 0 ||dbi > UINT_MAX)
+    mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+
+  key_obj = mrb_str_to_str(mrb, key_obj);
+  key.mv_size = RSTRING_LEN(key_obj);
+  key.mv_data = RSTRING_PTR(key_obj);
+
+  if (args == 4) {
+    data_obj = mrb_str_to_str(mrb, data_obj);
+    data.mv_size = RSTRING_LEN(data_obj);
+    data.mv_data = RSTRING_PTR(data_obj);
+  }
+
+  int rc = mdb_del(txn, (MDB_dbi) dbi, &key, &data);
 
   if(rc != 0)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -273,6 +302,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   mrb_define_module_function(mrb, mdb_dbi_mod, "open", mrb_mdb_dbi_open, MRB_ARGS_ARG(1, 2));
   mrb_define_module_function(mrb, mdb_mod, "get",   mrb_mdb_get,  MRB_ARGS_ARG(3, 1));
   mrb_define_module_function(mrb, mdb_mod, "put",   mrb_mdb_put,  MRB_ARGS_ARG(4, 1));
+  mrb_define_module_function(mrb, mdb_mod, "del",   mrb_mdb_del,  MRB_ARGS_ARG(3, 1));
   mrb_define_module_function(mrb, mdb_mod, "drop",  mrb_mdb_drop, MRB_ARGS_ARG(2, 1));
 }
 
