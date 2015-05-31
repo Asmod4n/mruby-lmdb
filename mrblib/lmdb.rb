@@ -18,25 +18,25 @@ module MDB
     end
 
     def database(*args)
-      dbi = nil
-      transaction do |txn|
-        dbi = Dbi.open(txn, *args)
-      end
-      dbi
+      Database.new(self, *args)
     end
   end
 
   class Database
+    include Enumerable
+
     def initialize(env, *args)
       @env = env
-      @dbi = @env.database(*args)
+      @env.transaction do |txn|
+        @dbi = Dbi.open(txn, *args)
+      end
     end
 
     def [](key)
       data = nil
-      @env.transaction(MDB::RDONLY) do |txn|
-        data = MDB.get(txn, @dbi, key)
-      end
+      txn = Txn.new(@env, RDONLY)
+      data = MDB.get(txn, @dbi, key)
+      txn.abort
       data
     end
 
@@ -44,13 +44,28 @@ module MDB
       @env.transaction do |txn|
         MDB.put(txn, @dbi, key, value)
       end
-      self
+      value
     end
 
     def del(*args)
       @env.transaction do |txn|
         MDB.del(txn, @dbi, *args)
       end
+      self
+    end
+
+    def each
+      txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(txn, @dbi)
+      record = cursor.get(Cursor::FIRST)
+      if record
+        yield record
+        while record = cursor.get(Cursor::NEXT)
+         yield record
+        end
+      end
+      cursor.close
+      txn.abort
       self
     end
 

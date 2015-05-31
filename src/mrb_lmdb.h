@@ -4,3 +4,4 @@
 #include <mruby/class.h>
 #include <mruby/string.h>
 #include <mruby/variable.h>
+#include <mruby/array.h>
