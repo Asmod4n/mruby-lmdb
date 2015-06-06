@@ -671,7 +671,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, mdb_env_class, "copy2",        mrb_mdb_env_copy2,          MRB_ARGS_ARG(1, 1));
   mrb_define_method(mrb, mdb_env_class, "stat",         mrb_mdb_env_stat,           MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "info",         mrb_mdb_env_info,           MRB_ARGS_NONE());
-  mrb_define_method(mrb, mdb_env_class, "sync",         mrb_mdb_env_info,           MRB_ARGS_OPT(1));
+  mrb_define_method(mrb, mdb_env_class, "sync",         mrb_mdb_env_sync,           MRB_ARGS_OPT(1));
   mrb_define_method(mrb, mdb_env_class, "set_flags",    mrb_mdb_env_set_flags,      MRB_ARGS_OPT(2));
   mrb_define_method(mrb, mdb_env_class, "flags",        mrb_mdb_env_get_flags,      MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "path",         mrb_mdb_env_get_path,       MRB_ARGS_NONE());
