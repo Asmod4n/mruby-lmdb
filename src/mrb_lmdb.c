@@ -101,7 +101,7 @@ mrb_mdb_env_stat(mrb_state *mrb, mrb_value self)
   args[4] = stat.ms_overflow_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
   args[5] = stat.ms_entries > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
 
-  return mrb_obj_new(mrb, E_LMDB_STAT, 6, args);
+  return mrb_obj_new(mrb, LMDB_STAT, 6, args);
 }
 
 static mrb_value
@@ -122,7 +122,7 @@ mrb_mdb_env_info(mrb_state *mrb, mrb_value self)
   args[4] = stat.me_maxreaders > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_maxreaders) : mrb_fixnum_value(stat.me_maxreaders);
   args[5] = stat.me_numreaders > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_numreaders) : mrb_fixnum_value(stat.me_numreaders);
 
-  return mrb_obj_new(mrb, E_LMDB_INFO, 6, args);
+  return mrb_obj_new(mrb, LMDB_ENV_INFO, 6, args);
 }
 
 static mrb_value
@@ -391,7 +391,7 @@ mrb_mdb_stat(mrb_state *mrb, mrb_value self)
   args[4] = stat.ms_overflow_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
   args[5] = stat.ms_entries > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
 
-  return mrb_obj_new(mrb, E_LMDB_STAT, 6, args);
+  return mrb_obj_new(mrb, LMDB_STAT, 6, args);
 }
 
 static mrb_value
@@ -667,7 +667,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   MRB_SET_INSTANCE_TT(mdb_env_class, MRB_TT_DATA);
   mrb_define_method(mrb, mdb_env_class, "initialize",   mrb_mdb_env_create,         MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "open",         mrb_mdb_env_open,           MRB_ARGS_ARG(1, 2));
-  mrb_define_method(mrb, mdb_env_class, "copy",         mrb_mdb_env_copy,           MRB_ARGS_ARG(1, 1));
+  mrb_define_method(mrb, mdb_env_class, "copy",         mrb_mdb_env_copy,           MRB_ARGS_REQ(1));
   mrb_define_method(mrb, mdb_env_class, "copy2",        mrb_mdb_env_copy2,          MRB_ARGS_ARG(1, 1));
   mrb_define_method(mrb, mdb_env_class, "stat",         mrb_mdb_env_stat,           MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "info",         mrb_mdb_env_info,           MRB_ARGS_NONE());
@@ -733,11 +733,11 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   mrb_define_const(mrb, mdb_cursor_class, "SET_KEY",          mrb_fixnum_value(cursor_op));
   cursor_op = MDB_SET_RANGE;
   mrb_define_const(mrb, mdb_cursor_class, "SET_RANGE",        mrb_fixnum_value(cursor_op));
-  mrb_define_method(mrb, mdb_cursor_class, "initialize",  mrb_mdb_cursor_open, MRB_ARGS_REQ(2));
+  mrb_define_method(mrb, mdb_cursor_class, "initialize",  mrb_mdb_cursor_open,  MRB_ARGS_REQ(2));
   mrb_define_method(mrb, mdb_cursor_class, "renew",       mrb_mdb_cursor_renew, MRB_ARGS_REQ(1));
   mrb_define_method(mrb, mdb_cursor_class, "close",       mrb_mdb_cursor_close, MRB_ARGS_NONE());
-  mrb_define_method(mrb, mdb_cursor_class, "get",         mrb_mdb_cursor_get, MRB_ARGS_ARG(1, 1));
-  mrb_define_method(mrb, mdb_cursor_class, "put",         mrb_mdb_cursor_put, MRB_ARGS_ARG(2, 1));
+  mrb_define_method(mrb, mdb_cursor_class, "get",         mrb_mdb_cursor_get,   MRB_ARGS_ARG(1, 1));
+  mrb_define_method(mrb, mdb_cursor_class, "put",         mrb_mdb_cursor_put,   MRB_ARGS_ARG(2, 1));
 }
 
 void

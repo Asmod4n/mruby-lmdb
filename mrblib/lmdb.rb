@@ -1,6 +1,6 @@
 module MDB
+  Stat = Struct.new(:psize, :depth, :branch_pages, :leaf_pages, :overflow_pages, :entries)
   class Env
-    Stat = Struct.new(:psize, :depth, :branch_pages, :leaf_pages, :overflow_pages, :entries)
     Info = Struct.new(:mapaddr, :mapsize, :last_pgno, :last_txnid, :maxreaders, :numreaders)
 
     def transaction(*args)
