@@ -1,4 +1,5 @@
 ﻿#include <lmdb.h>
+#include <string.h>
 #include <mruby.h>
 #include <mruby/data.h>
 #include <mruby/class.h>

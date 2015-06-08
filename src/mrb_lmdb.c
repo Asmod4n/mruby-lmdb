@@ -360,8 +360,10 @@ mrb_mdb_dbi_open(mrb_state *mrb, mrb_value self)
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
 
-  if (dbi > MRB_INT_MAX)
+  if (dbi > MRB_INT_MAX) {
+    mdb_dbi_close(mdb_txn_env(txn), dbi);
     mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+  }
 
   return mrb_fixnum_value(dbi);
 }
