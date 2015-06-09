@@ -2,13 +2,13 @@
 #include "mrb_lmdb.h"
 
 static void
-mrb_mdb_env_close(mrb_state *mrb, void *p)
+mrb_mdb_env_free(mrb_state *mrb, void *p)
 {
   mdb_env_close((MDB_env *) p);
 }
 
 static const struct mrb_data_type mdb_env_type = {
-  "$mrb_i_mdb_env", mrb_mdb_env_close,
+  "$mrb_i_mdb_env", mrb_mdb_env_free,
 };
 
 static mrb_value
@@ -138,6 +138,15 @@ mrb_mdb_env_sync(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
 
   return self;
+}
+
+static mrb_value
+mrb_mdb_env_close(mrb_state* mrb, mrb_value self)
+{
+  mdb_env_close((MDB_env *) DATA_PTR(self));
+  mrb_data_init(self, NULL, &mdb_env_type);
+
+  return mrb_true_value();
 }
 
 static mrb_value
@@ -674,6 +683,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, mdb_env_class, "stat",         mrb_mdb_env_stat,           MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "info",         mrb_mdb_env_info,           MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "sync",         mrb_mdb_env_sync,           MRB_ARGS_OPT(1));
+  mrb_define_method(mrb, mdb_env_class, "close",        mrb_mdb_env_close,          MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "set_flags",    mrb_mdb_env_set_flags,      MRB_ARGS_OPT(2));
   mrb_define_method(mrb, mdb_env_class, "flags",        mrb_mdb_env_get_flags,      MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_env_class, "path",         mrb_mdb_env_get_path,       MRB_ARGS_NONE());
