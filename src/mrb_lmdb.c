@@ -1,6 +1,33 @@
 ﻿#include "mruby/lmdb.h"
 #include "mrb_lmdb.h"
 
+static mrb_value
+mrb_fix2bin(mrb_state *mrb, mrb_value self)
+{
+  mrb_int number = mrb_int(mrb, self);
+  mrb_value p = mrb_str_new(mrb, NULL, sizeof(mrb_int));
+  mrb_str_modify(mrb, RSTRING(p));
+  for (mrb_int i = 0; i < sizeof(mrb_int); ++i)
+    RSTRING_PTR(p)[i] = (unsigned char) (number >> i * 8);
+
+  return p;
+}
+
+static mrb_value
+mrb_bin2fix(mrb_state *mrb, mrb_value self)
+{
+  if (RSTRING_LEN(self) != sizeof(mrb_int))
+    mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
+
+  unsigned char *p = (unsigned char *) RSTRING_PTR(self);
+  mrb_int number = 0;
+
+  for (mrb_int i = 0; i < sizeof(mrb_int); ++i)
+    number += ((mrb_int) (p[i]) << i * 8);
+
+  return mrb_fixnum_value(number);
+}
+
 static void
 mrb_mdb_env_free(mrb_state *mrb, void *p)
 {
@@ -644,6 +671,9 @@ mrb_mdb_cursor_put(mrb_state *mrb, mrb_value self)
 void
 mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   struct RClass *mdb_mod, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
+
+  mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix, MRB_ARGS_NONE());
+  mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin, MRB_ARGS_NONE());
 
   mdb_mod = mrb_define_module(mrb, "MDB");
   mrb_define_const(mrb, mdb_mod,  "VERSION",      mrb_str_new_static(mrb, MDB_VERSION_STRING, strlen(MDB_VERSION_STRING)));

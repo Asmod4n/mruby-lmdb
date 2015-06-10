@@ -30,10 +30,11 @@ module MDB
     end
 
     def [](key)
+      txn = nil
       txn = Txn.new(@env, RDONLY)
-      data = MDB.get(txn, @dbi, key)
-      txn.abort
-      data
+      MDB.get(txn, @dbi, key)
+    ensure
+      txn.abort if txn
     end
 
     def []=(key, value)
@@ -51,25 +52,25 @@ module MDB
     end
 
     def each
+      txn = nil
+      cursor = nil
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
-      record = cursor.get(Cursor::FIRST)
-      if record
-        yield record
-        while record = cursor.get(Cursor::NEXT)
+      while record = cursor.get(Cursor::NEXT)
          yield record
-        end
       end
-      cursor.close
-      txn.abort
       self
+    ensure
+      cursor.close if cursor
+      txn.abort if txn
     end
 
     def stat
+      txn = nil
       txn = Txn.new(@env, RDONLY)
-      stat = MDB.stat(txn, @dbi)
-      txn.abort
-      stat
+      MDB.stat(txn, @dbi)
+    ensure
+      txn.abort if txn
     end
 
     def size
