@@ -65,6 +65,47 @@ module MDB
       txn.abort if txn
     end
 
+    def first
+      txn = nil
+      cursor = nil
+      txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(txn, @dbi)
+      cursor.get(Cursor::FIRST)
+    ensure
+      cursor.close if cursor
+      txn.abort if txn
+    end
+
+    def last
+      txn = nil
+      cursor = nil
+      txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(txn, @dbi)
+      cursor.get(Cursor::LAST)
+    ensure
+      cursor.close if cursor
+      txn.abort if txn
+    end
+
+    def <<(value)
+      txn = nil
+      cursor = nil
+      txn = Txn.new(@env)
+      cursor = Cursor.new(txn, @dbi)
+      record = cursor.get(Cursor::LAST, true)
+      if record
+        cursor.put(record[0].to_fix.succ.to_bin, value, MDB::APPEND).close
+      else
+        cursor.put(0.to_bin, value, MDB::APPEND).close
+      end
+      txn.commit
+      self
+    rescue => e
+      cursor.close if cursor
+      txn.abort if txn
+      raise e
+    end
+
     def stat
       txn = nil
       txn = Txn.new(@env, RDONLY)
