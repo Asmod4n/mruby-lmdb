@@ -5,12 +5,50 @@ static mrb_value
 mrb_fix2bin(mrb_state *mrb, mrb_value self)
 {
   mrb_int number = mrb_int(mrb, self);
-  mrb_value p = mrb_str_new(mrb, NULL, sizeof(mrb_int));
-  mrb_str_modify(mrb, RSTRING(p));
-  for (mrb_int i = 0; i < sizeof(mrb_int); ++i)
-    RSTRING_PTR(p)[i] = (unsigned char) (number >> i * 8);
+  mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
+  unsigned char *p = (unsigned char *) RSTRING_PTR(pp);
 
-  return p;
+#if PLATFORM_BYTE_ORDER == IS_BIG_ENDIAN
+  #if defined(MRB_INT64)
+    p[0] = (unsigned char) (number >> 56) & 0xFF;
+    p[1] = (unsigned char) (number >> 48) & 0xFF;
+    p[2] = (unsigned char) (number >> 40) & 0xFF;
+    p[3] = (unsigned char) (number >> 32) & 0xFF;
+    p[4] = (unsigned char) (number >> 24) & 0xFF;
+    p[5] = (unsigned char) (number >> 16) & 0xFF;
+    p[6] = (unsigned char) (number >> 8)  & 0xFF;
+    p[7] = (unsigned char) number & 0xFF;
+  #elif defined(MRB_INT16)
+    p[0] = (unsigned char) (number >> 8)  & 0xFF;
+    p[1] = (unsigned char) number & 0xFF;
+  #else
+    p[0] = (unsigned char) (number >> 24) & 0xFF;
+    p[1] = (unsigned char) (number >> 16) & 0xFF;
+    p[2] = (unsigned char) (number >> 8)  & 0xFF;
+    p[3] = (unsigned char) number & 0xFF;
+  #endif
+#else
+  #if defined(MRB_INT64)
+    p[0] = (unsigned char) number & 0xFF;
+    p[1] = (unsigned char) (number >> 8)  & 0xFF;
+    p[2] = (unsigned char) (number >> 16) & 0xFF;
+    p[3] = (unsigned char) (number >> 24) & 0xFF;
+    p[4] = (unsigned char) (number >> 32) & 0xFF;
+    p[5] = (unsigned char) (number >> 40) & 0xFF;
+    p[6] = (unsigned char) (number >> 48) & 0xFF;
+    p[7] = (unsigned char) (number >> 56) & 0xFF;
+  #elif defined(MRB_INT16)
+    p[0] = (unsigned char) number & 0xFF;
+    p[1] = (unsigned char) (number >> 8)  & 0xFF;
+  #else
+    p[0] = (unsigned char) number & 0xFF;
+    p[1] = (unsigned char) (number >> 8)  & 0xFF;
+    p[2] = (unsigned char) (number >> 16) & 0xFF;
+    p[3] = (unsigned char) (number >> 24) & 0xFF;
+  #endif
+#endif
+
+  return pp;
 }
 
 static mrb_value
@@ -20,10 +58,43 @@ mrb_bin2fix(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
 
   unsigned char *p = (unsigned char *) RSTRING_PTR(self);
-  mrb_int number = 0;
+  mrb_int number;
 
-  for (mrb_int i = 0; i < sizeof(mrb_int); ++i)
-    number += ((mrb_int) (p[i]) << i * 8);
+#if PLATFORM_BYTE_ORDER == IS_BIG_ENDIAN
+  #if defined(MRB_INT64)
+    number =    (((mrb_int) (p[0])) << 56)
+              + (((mrb_int) (p[1])) << 48)
+              + (((mrb_int) (p[2])) << 40)
+              + (((mrb_int) (p[3])) << 32)
+              + (((mrb_int) (p[4])) << 24)
+              + (((mrb_int) (p[5])) << 16)
+              + (((mrb_int) (p[6])) << 8)
+              + (((mrb_int) (p[7]));
+  #elif defined(MRB_INT16)
+    number =    (((mrb_int) (p[0])) << 8)
+  #else
+    number =    (((mrb_int) (p[0])) << 24)
+              + (((mrb_int) (p[1])) << 16)
+              + (((mrb_int) (p[2])) << 8)
+              + (((mrb_int) (p[3]));
+  #endif
+#else
+  #if defined(MRB_INT64)
+              + (((mrb_int) (p[1])) << 8)
+              + (((mrb_int) (p[2])) << 16)
+              + (((mrb_int) (p[3])) << 24)
+              + (((mrb_int) (p[4])) << 32)
+              + (((mrb_int) (p[5])) << 40)
+              + (((mrb_int) (p[6])) << 48)
+              + (((mrb_int) (p[7])) << 56);
+  #elif defined(MRB_INT16)
+              + (((mrb_int) (p[1])) << 8);
+  #else
+              + (((mrb_int) (p[1])) << 8)
+              + (((mrb_int) (p[2])) << 16)
+              + (((mrb_int) (p[3])) << 24);
+  #endif
+#endif
 
   return mrb_fixnum_value(number);
 }
