@@ -694,20 +694,12 @@ mrb_mdb_cursor_get(mrb_state *mrb, mrb_value self)
   int rc = mdb_cursor_get((MDB_cursor *) DATA_PTR(self), &key, &data, cursor_op);
 
   if (rc == MDB_SUCCESS) {
-    mrb_value key_data_ary = mrb_ary_new_capa(mrb, 2);
-    if (static_string) {
-      mrb_ary_set(mrb, key_data_ary, 0,
-        mrb_str_new_static(mrb, (const char *) key.mv_data, key.mv_size));
-      mrb_ary_set(mrb, key_data_ary, 1,
+    if (static_string)
+      return mrb_assoc_new(mrb, mrb_str_new_static(mrb, (const char *) key.mv_data, key.mv_size),
         mrb_str_new_static(mrb, (const char *) data.mv_data, data.mv_size));
-    } else {
-      mrb_ary_set(mrb, key_data_ary, 0,
-        mrb_str_new(mrb, (const char *) key.mv_data, key.mv_size));
-      mrb_ary_set(mrb, key_data_ary, 1,
+    else
+      return mrb_assoc_new(mrb, mrb_str_new(mrb, (const char *) key.mv_data, key.mv_size),
         mrb_str_new(mrb, (const char *) data.mv_data, data.mv_size));
-    }
-
-    return key_data_ary;
   }
   else
   if (rc == MDB_NOTFOUND)
