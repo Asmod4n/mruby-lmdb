@@ -94,7 +94,7 @@ module MDB
       cursor = Cursor.new(txn, @dbi)
       record = cursor.get(Cursor::LAST, true)
       if record
-        cursor.put(record[0].to_fix.succ.to_bin, value, MDB::APPEND).close
+        cursor.put(record.first.to_fix.succ.to_bin, value, MDB::APPEND).close
       else
         cursor.put(0.to_bin, value, MDB::APPEND).close
       end

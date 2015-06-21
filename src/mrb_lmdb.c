@@ -735,6 +735,40 @@ mrb_mdb_cursor_put(mrb_state *mrb, mrb_value self)
   return self;
 }
 
+static mrb_value
+mrb_mdb_cursor_del(mrb_state *mrb, mrb_value self)
+{
+  mrb_int flags = 0;
+
+  mrb_get_args(mrb, "|i", &flags);
+
+  if (flags < 0 ||flags > UINT_MAX)
+    mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+
+  int rc = mdb_cursor_del((MDB_cursor *) DATA_PTR(self), (unsigned int) flags);
+
+  if (rc != MDB_SUCCESS)
+    mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
+
+  return self;
+}
+
+static mrb_value
+mrb_mdb_cursor_count(mrb_state *mrb, mrb_value self)
+{
+  size_t count;
+
+  int rc = mdb_cursor_count((MDB_cursor *) DATA_PTR(self), &count);
+
+  if (rc != MDB_SUCCESS)
+    mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
+
+  if (count > MRB_INT_MAX)
+    return mrb_float_value(mrb, count);
+  else
+    return mrb_fixnum_value(count);
+}
+
 void
 mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   struct RClass *mdb_mod, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
@@ -847,6 +881,8 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb) {
   mrb_define_method(mrb, mdb_cursor_class, "close",       mrb_mdb_cursor_close, MRB_ARGS_NONE());
   mrb_define_method(mrb, mdb_cursor_class, "get",         mrb_mdb_cursor_get,   MRB_ARGS_ARG(1, 1));
   mrb_define_method(mrb, mdb_cursor_class, "put",         mrb_mdb_cursor_put,   MRB_ARGS_ARG(2, 1));
+  mrb_define_method(mrb, mdb_cursor_class, "del",         mrb_mdb_cursor_del,   MRB_ARGS_OPT(1));
+  mrb_define_method(mrb, mdb_cursor_class, "count",       mrb_mdb_cursor_count, MRB_ARGS_NONE());
 }
 
 void
