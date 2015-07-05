@@ -5,7 +5,7 @@
 #ifndef MRUBY_LMDB_H
 #define MRUBY_LMDB_H
 
-#include "mruby.h"
+#include <mruby.h>
 
 #ifdef __cplusplus
 extern "C" {
