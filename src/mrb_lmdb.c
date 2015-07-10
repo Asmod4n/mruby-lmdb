@@ -274,12 +274,13 @@ static mrb_value
 mrb_mdb_env_close(mrb_state* mrb, mrb_value self)
 {
   MDB_env *env = (MDB_env *) DATA_PTR(self);
-  mrb_assert(env);
+  if (env) {
+    mdb_env_close(env);
+    mrb_data_init(self, NULL, &mrb_no_op_type);
+    return mrb_true_value();
+  }
 
-  mdb_env_close(env);
-  mrb_data_init(self, NULL, &mrb_no_op_type);
-
-  return mrb_true_value();
+  return mrb_false_value();
 }
 
 static mrb_value
@@ -487,12 +488,13 @@ static mrb_value
 mrb_mdb_txn_abort(mrb_state *mrb, mrb_value self)
 {
   MDB_txn *txn = (MDB_txn *) DATA_PTR(self);
-  mrb_assert(txn);
+  if (txn) {
+    mdb_txn_abort(txn);
+    mrb_data_init(self, NULL, &mrb_no_op_type);
+    return mrb_true_value();
+  }
 
-  mdb_txn_abort(txn);
-  mrb_data_init(self, NULL, &mrb_no_op_type);
-
-  return mrb_true_value();
+  return mrb_false_value();
 }
 
 static mrb_value
@@ -747,12 +749,13 @@ static mrb_value
 mrb_mdb_cursor_close(mrb_state *mrb, mrb_value self)
 {
   MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
-  mrb_assert(cursor);
+  if (cursor) {
+    mdb_cursor_close(cursor);
+    mrb_data_init(self, NULL, &mrb_no_op_type);
+    return mrb_true_value();
+  }
 
-  mdb_cursor_close(cursor);
-  mrb_data_init(self, NULL, &mrb_no_op_type);
-
-  return mrb_true_value();
+  return mrb_false_value();
 }
 
 static mrb_value
