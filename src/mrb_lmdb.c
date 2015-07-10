@@ -104,6 +104,16 @@ mrb_bin2fix(mrb_state *mrb, mrb_value self)
 }
 
 static void
+mrb_no_op_free(mrb_state *mrb, void *p)
+{
+
+}
+
+static const struct mrb_data_type mrb_no_op_type = {
+  "$mrb_i_no_op", mrb_no_op_free,
+};
+
+static void
 mrb_mdb_env_free(mrb_state *mrb, void *p)
 {
   mdb_env_close((MDB_env *) p);
@@ -131,6 +141,9 @@ mrb_mdb_env_create(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_open(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   char *path;
   mrb_int flags = 0, mode = 0600;
 
@@ -142,7 +155,7 @@ mrb_mdb_env_open(mrb_state *mrb, mrb_value self)
   if (mode < INT_MIN ||mode > INT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "mode is out of range");
 
-  int rc = mdb_env_open((MDB_env *) DATA_PTR(self), (const char *) path,
+  int rc = mdb_env_open(env, (const char *) path,
     (unsigned int) flags, (mdb_mode_t) mode);
 
   if (rc != MDB_SUCCESS)
@@ -154,11 +167,14 @@ mrb_mdb_env_open(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_copy(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   char *path;
 
   mrb_get_args(mrb, "z", &path);
 
-  int rc = mdb_env_copy((MDB_env *) DATA_PTR(self), (const char *) path);
+  int rc = mdb_env_copy(env, (const char *) path);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -169,6 +185,9 @@ mrb_mdb_env_copy(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_copy2(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   char *path;
   mrb_int flags = 0;
 
@@ -177,7 +196,7 @@ mrb_mdb_env_copy2(mrb_state *mrb, mrb_value self)
   if (flags < 0 ||flags > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
 
-  int rc = mdb_env_copy2((MDB_env *) DATA_PTR(self), (const char *) path, (unsigned int) flags);
+  int rc = mdb_env_copy2(env, (const char *) path, (unsigned int) flags);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -188,10 +207,13 @@ mrb_mdb_env_copy2(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_stat(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   MDB_stat stat;
   mrb_value args[6];
 
-  int rc = mdb_env_stat((MDB_env *) DATA_PTR(self), &stat);
+  int rc = mdb_env_stat(env, &stat);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -209,10 +231,13 @@ mrb_mdb_env_stat(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_info(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   MDB_envinfo stat;
   mrb_value args[6];
 
-  int rc = mdb_env_info((MDB_env *) DATA_PTR(self), &stat);
+  int rc = mdb_env_info(env, &stat);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -230,11 +255,14 @@ mrb_mdb_env_info(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_sync(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   mrb_bool force = FALSE;
 
   mrb_get_args(mrb, "|b", &force);
 
-  int rc = mdb_env_sync((MDB_env *) DATA_PTR(self), (int) force);
+  int rc = mdb_env_sync(env, (int) force);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -245,8 +273,11 @@ mrb_mdb_env_sync(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_close(mrb_state* mrb, mrb_value self)
 {
-  mdb_env_close((MDB_env *) DATA_PTR(self));
-  mrb_data_init(self, NULL, &mdb_env_type);
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
+  mdb_env_close(env);
+  mrb_data_init(self, NULL, &mrb_no_op_type);
 
   return mrb_true_value();
 }
@@ -254,6 +285,9 @@ mrb_mdb_env_close(mrb_state* mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_set_flags(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   mrb_int flags = 0;
   mrb_bool onoff = TRUE;
 
@@ -262,7 +296,7 @@ mrb_mdb_env_set_flags(mrb_state *mrb, mrb_value self)
   if (flags < 0 ||flags > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
 
-  int rc = mdb_env_set_flags((MDB_env *) DATA_PTR(self), (unsigned int) flags, (int) onoff);
+  int rc = mdb_env_set_flags(env, (unsigned int) flags, (int) onoff);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -273,9 +307,12 @@ mrb_mdb_env_set_flags(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_get_flags(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   unsigned int flags;
 
-  int rc = mdb_env_get_flags((MDB_env *) DATA_PTR(self), &flags);
+  int rc = mdb_env_get_flags(env, &flags);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -289,9 +326,12 @@ mrb_mdb_env_get_flags(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_get_path(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   const char *path;
 
-  int rc = mdb_env_get_path((MDB_env *) DATA_PTR(self), &path);
+  int rc = mdb_env_get_path(env, &path);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -302,6 +342,9 @@ mrb_mdb_env_get_path(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_set_mapsize(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   mrb_int size;
 
   mrb_get_args(mrb, "i", &size);
@@ -309,7 +352,7 @@ mrb_mdb_env_set_mapsize(mrb_state *mrb, mrb_value self)
   if (size < 0||size > SIZE_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "size is out of range");
 
-  int rc = mdb_env_set_mapsize((MDB_env *) DATA_PTR(self), (size_t) size);
+  int rc = mdb_env_set_mapsize(env, (size_t) size);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -320,6 +363,9 @@ mrb_mdb_env_set_mapsize(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_set_maxreaders(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   mrb_int readers;
 
   mrb_get_args(mrb, "i", &readers);
@@ -327,7 +373,7 @@ mrb_mdb_env_set_maxreaders(mrb_state *mrb, mrb_value self)
   if (readers < 0 ||readers > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "readers are out of range");
 
-  int rc = mdb_env_set_maxreaders((MDB_env *) DATA_PTR(self), (unsigned int) readers);
+  int rc = mdb_env_set_maxreaders(env, (unsigned int) readers);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -338,9 +384,12 @@ mrb_mdb_env_set_maxreaders(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_get_maxreaders(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   unsigned int readers;
 
-  int rc = mdb_env_get_maxreaders((MDB_env *) DATA_PTR(self), &readers);
+  int rc = mdb_env_get_maxreaders(env, &readers);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -354,6 +403,9 @@ mrb_mdb_env_get_maxreaders(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_set_maxdbs(mrb_state *mrb, mrb_value self)
 {
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
   mrb_int dbs;
 
   mrb_get_args(mrb, "i", &dbs);
@@ -361,7 +413,7 @@ mrb_mdb_env_set_maxdbs(mrb_state *mrb, mrb_value self)
   if (dbs < 0 ||dbs > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "dbs is out of range");
 
-  int rc = mdb_env_set_maxdbs((MDB_env *) DATA_PTR(self), (MDB_dbi) dbs);
+  int rc = mdb_env_set_maxdbs(env, (MDB_dbi) dbs);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -372,7 +424,10 @@ mrb_mdb_env_set_maxdbs(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_env_get_maxkeysize(mrb_state *mrb, mrb_value self)
 {
-  int maxkeysize = mdb_env_get_maxkeysize((MDB_env *) DATA_PTR(self));
+  MDB_env *env = (MDB_env *) DATA_PTR(self);
+  mrb_assert(env);
+
+  int maxkeysize = mdb_env_get_maxkeysize(env);
 
   if (maxkeysize > MRB_INT_MAX)
     return mrb_float_value(mrb, maxkeysize);
@@ -416,8 +471,11 @@ mrb_mdb_txn_begin(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_txn_commit(mrb_state *mrb, mrb_value self)
 {
-  int rc = mdb_txn_commit((MDB_txn *) DATA_PTR(self));
-  mrb_data_init(self, NULL, &mdb_txn_type);
+  MDB_txn *txn = (MDB_txn *) DATA_PTR(self);
+  mrb_assert(txn);
+
+  int rc = mdb_txn_commit(txn);
+  mrb_data_init(self, NULL, &mrb_no_op_type);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -428,8 +486,11 @@ mrb_mdb_txn_commit(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_txn_abort(mrb_state *mrb, mrb_value self)
 {
-  mdb_txn_abort((MDB_txn *) DATA_PTR(self));
-  mrb_data_init(self, NULL, &mdb_txn_type);
+  MDB_txn *txn = (MDB_txn *) DATA_PTR(self);
+  mrb_assert(txn);
+
+  mdb_txn_abort(txn);
+  mrb_data_init(self, NULL, &mrb_no_op_type);
 
   return mrb_true_value();
 }
@@ -437,7 +498,10 @@ mrb_mdb_txn_abort(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_txn_reset(mrb_state *mrb, mrb_value self)
 {
-  mdb_txn_reset((MDB_txn *) DATA_PTR(self));
+  MDB_txn *txn = (MDB_txn *) DATA_PTR(self);
+  mrb_assert(txn);
+
+  mdb_txn_reset(txn);
 
   return self;
 }
@@ -445,7 +509,10 @@ mrb_mdb_txn_reset(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_txn_renew(mrb_state *mrb, mrb_value self)
 {
-  int rc = mdb_txn_renew((MDB_txn *) DATA_PTR(self));
+  MDB_txn *txn = (MDB_txn *) DATA_PTR(self);
+  mrb_assert(txn);
+
+  int rc = mdb_txn_renew(txn);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -661,11 +728,14 @@ mrb_mdb_cursor_open(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_cursor_renew(mrb_state *mrb, mrb_value self)
 {
+  MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
+  mrb_assert(cursor);
+
   MDB_txn *txn;
 
   mrb_get_args(mrb, "d", &txn, &mdb_txn_type);
 
-  int rc = mdb_cursor_renew(txn, (MDB_cursor *) DATA_PTR(self));
+  int rc = mdb_cursor_renew(txn, cursor);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -676,8 +746,11 @@ mrb_mdb_cursor_renew(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_cursor_close(mrb_state *mrb, mrb_value self)
 {
-  mdb_cursor_close((MDB_cursor *) DATA_PTR(self));
-  mrb_data_init(self, NULL, &mdb_cursor_type);
+  MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
+  mrb_assert(cursor);
+
+  mdb_cursor_close(cursor);
+  mrb_data_init(self, NULL, &mrb_no_op_type);
 
   return mrb_true_value();
 }
@@ -685,13 +758,16 @@ mrb_mdb_cursor_close(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_cursor_get(mrb_state *mrb, mrb_value self)
 {
+  MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
+  mrb_assert(cursor);
+
   mrb_int cursor_op;
   mrb_bool static_string = FALSE;
   MDB_val key, data;
 
   mrb_get_args(mrb, "i|b", &cursor_op, &static_string);
 
-  int rc = mdb_cursor_get((MDB_cursor *) DATA_PTR(self), &key, &data, cursor_op);
+  int rc = mdb_cursor_get(cursor, &key, &data, cursor_op);
 
   if (rc == MDB_SUCCESS) {
     if (static_string)
@@ -711,6 +787,9 @@ mrb_mdb_cursor_get(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_cursor_put(mrb_state *mrb, mrb_value self)
 {
+  MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
+  mrb_assert(cursor);
+
   mrb_value key_obj, data_obj;
   mrb_int flags = 0;
   MDB_val key, data;
@@ -727,7 +806,7 @@ mrb_mdb_cursor_put(mrb_state *mrb, mrb_value self)
   data.mv_size = RSTRING_LEN(data_obj);
   data.mv_data = RSTRING_PTR(data_obj);
 
-  int rc = mdb_cursor_put((MDB_cursor *) DATA_PTR(self), &key, &data, (unsigned int) flags);
+  int rc = mdb_cursor_put(cursor, &key, &data, (unsigned int) flags);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -738,6 +817,9 @@ mrb_mdb_cursor_put(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_cursor_del(mrb_state *mrb, mrb_value self)
 {
+  MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
+  mrb_assert(cursor);
+
   mrb_int flags = 0;
 
   mrb_get_args(mrb, "|i", &flags);
@@ -745,7 +827,7 @@ mrb_mdb_cursor_del(mrb_state *mrb, mrb_value self)
   if (flags < 0 ||flags > UINT_MAX)
     mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
 
-  int rc = mdb_cursor_del((MDB_cursor *) DATA_PTR(self), (unsigned int) flags);
+  int rc = mdb_cursor_del(cursor, (unsigned int) flags);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
@@ -756,9 +838,12 @@ mrb_mdb_cursor_del(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_cursor_count(mrb_state *mrb, mrb_value self)
 {
+  MDB_cursor *cursor = (MDB_cursor *) DATA_PTR(self);
+  mrb_assert(cursor);
+
   size_t count;
 
-  int rc = mdb_cursor_count((MDB_cursor *) DATA_PTR(self), &count);
+  int rc = mdb_cursor_count(cursor, &count);
 
   if (rc != MDB_SUCCESS)
     mrb_raise(mrb, E_LMDB_ERROR, mdb_strerror(rc));
