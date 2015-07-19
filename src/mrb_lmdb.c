@@ -264,12 +264,12 @@ mrb_mdb_env_sync(mrb_state *mrb, mrb_value self)
   MDB_env *env = (MDB_env *) DATA_PTR(self);
   mrb_assert(env);
 
-  mrb_bool foerre = FALSE;
+  mrb_bool force = FALSE;
 
-  mrb_get_args(mrb, "|b", &foerre);
+  mrb_get_args(mrb, "|b", &force);
 
   errno = 0;
-  int err = mdb_env_sync(env, (int) foerre);
+  int err = mdb_env_sync(env, (int) force);
 
   if (err != MDB_SUCCESS)
     mrb_sys_fail(mrb, mdb_strerror(err));

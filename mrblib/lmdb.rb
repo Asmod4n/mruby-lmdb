@@ -4,7 +4,6 @@ module MDB
     class Info < Struct.new(:mapaddr, :mapsize, :last_pgno, :last_txnid, :maxreaders, :numreaders); end
 
     def transaction(*args)
-      txn = nil
       txn = Txn.new(self, *args)
       yield txn
       txn.commit
@@ -30,7 +29,6 @@ module MDB
     end
 
     def [](key)
-      txn = nil
       txn = Txn.new(@env, RDONLY)
       MDB.get(txn, @dbi, key)
     ensure
@@ -52,8 +50,6 @@ module MDB
     end
 
     def each
-      txn = nil
-      cursor = nil
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
       while record = cursor.get(Cursor::NEXT)
@@ -66,8 +62,6 @@ module MDB
     end
 
     def first
-      txn = nil
-      cursor = nil
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
       cursor.get(Cursor::FIRST)
@@ -77,8 +71,6 @@ module MDB
     end
 
     def last
-      txn = nil
-      cursor = nil
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
       cursor.get(Cursor::LAST)
@@ -88,8 +80,6 @@ module MDB
     end
 
     def <<(value)
-      txn = nil
-      cursor = nil
       txn = Txn.new(@env)
       cursor = Cursor.new(txn, @dbi)
       record = cursor.get(Cursor::LAST, true)
@@ -107,7 +97,6 @@ module MDB
     end
 
     def stat
-      txn = nil
       txn = Txn.new(@env, RDONLY)
       MDB.stat(txn, @dbi)
     ensure
