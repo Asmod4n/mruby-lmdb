@@ -96,6 +96,27 @@ module MDB
       raise e
     end
 
+    def concat(values)
+      txn = Txn.new(@env)
+      cursor = Cursor.new(txn, @dbi)
+      record = cursor.get(Cursor::LAST, true)
+      key = 0
+      if record
+        key = record.first.to_fix + 1
+      end
+      values.each do |value|
+        cursor.put(key.to_bin, value, MDB::APPEND)
+        key += 1
+      end
+      cursor.close
+      txn.commit
+      self
+    rescue => e
+      cursor.close if cursor
+      txn.abort if txn
+      raise e
+    end
+
     def stat
       txn = Txn.new(@env, RDONLY)
       MDB.stat(txn, @dbi)
