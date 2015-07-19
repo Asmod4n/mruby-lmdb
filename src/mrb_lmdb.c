@@ -230,7 +230,7 @@ mrb_mdb_env_stat(mrb_state *mrb, mrb_value self)
   args[4] = stat.ms_overflow_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
   args[5] = stat.ms_entries > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
 
-  return mrb_obj_new(mrb, LMDB_STAT, sizeof(args), args);
+  return mrb_obj_new(mrb, LMDB_STAT, sizeof(args) / sizeof(args[0]), args);
 }
 
 static mrb_value

@@ -26,5 +26,6 @@ puts db.last
 
 puts db.stat
 puts env.info
+puts env.stat
 
 ```
