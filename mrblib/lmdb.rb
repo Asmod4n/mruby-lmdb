@@ -35,6 +35,19 @@ module MDB
       txn.abort if txn
     end
 
+    def fetch(key, default = nil)
+      txn = Txn.new(@env, RDONLY)
+      val = MDB.get(txn, @dbi, key)
+      unless val
+        return yield(key) if block_given?
+        return default if default
+        raise KeyError, "key not found"
+      end
+      val
+    ensure
+      txn.abort if txn
+    end
+
     def []=(key, value)
       @env.transaction do |txn|
         MDB.put(txn, @dbi, key, value)
@@ -124,8 +137,14 @@ module MDB
       txn.abort if txn
     end
 
-    def size
+    def length
       stat[:entries]
+    end
+
+    alias :size :length
+
+    def empty?
+      length == 0
     end
 
     def transaction(*args)
