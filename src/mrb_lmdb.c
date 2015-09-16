@@ -70,7 +70,7 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
               + (((mrb_int) (p[4])) << 24)
               + (((mrb_int) (p[5])) << 16)
               + (((mrb_int) (p[6])) << 8)
-              + (((mrb_int) (p[7]));
+              + (((mrb_int) (p[7])));
 #elif defined(MRB_INT16)
         number = (((mrb_int)(p[0])) << 8)
             + (((mrb_int)(p[1])));
@@ -78,7 +78,7 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
     number =    (((mrb_int) (p[0])) << 24)
               + (((mrb_int) (p[1])) << 16)
               + (((mrb_int) (p[2])) << 8)
-              + (((mrb_int) (p[3]));
+              + (((mrb_int) (p[3])));
 #endif
     }
     else {
