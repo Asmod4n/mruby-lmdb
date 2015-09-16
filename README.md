@@ -5,6 +5,16 @@ Prerequisites
 =============
 lmdb needs to be somewhere your compiler can find it.
 
+On Ubuntu:
+```sh
+apt install liblmdb-dev
+```
+
+On OS X:
+```sh
+brew install lmdb
+```
+
 Examples
 ========
 
