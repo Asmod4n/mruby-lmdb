@@ -1,11 +1,12 @@
-﻿#include <lmdb.h>
+﻿#include <stdint.h>
+#include <lmdb.h>
 #include <string.h>
 #include <mruby.h>
 #include <mruby/data.h>
 #include <mruby/class.h>
 #include <mruby/string.h>
 #include <mruby/array.h>
-#include "edefs.h"
+#include <mruby/dump.h>
 #include <errno.h>
 #include <mruby/error.h>
 

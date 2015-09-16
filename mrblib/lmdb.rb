@@ -21,6 +21,8 @@ module MDB
   class Database
     include Enumerable
 
+    attr_reader :dbi
+
     def initialize(env, *args)
       @env = env
       @env.transaction do |txn|
