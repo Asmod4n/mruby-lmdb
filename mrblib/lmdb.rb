@@ -30,6 +30,13 @@ module MDB
       end
     end
 
+    def flags
+      txn = Txn.new(@env, RDONLY)
+      Dbi.flags(txn, @dbi)
+    ensure
+      txn.abort if txn
+    end
+
     def [](key)
       txn = Txn.new(@env, RDONLY)
       MDB.get(txn, @dbi, key)
@@ -50,11 +57,11 @@ module MDB
       txn.abort if txn
     end
 
-    def []=(key, value)
+    def []=(key, data)
       @env.transaction do |txn|
-        MDB.put(txn, @dbi, key, value)
+        MDB.put(txn, @dbi, key, data)
       end
-      value
+      data
     end
 
     def del(*args)
@@ -62,6 +69,18 @@ module MDB
         MDB.del(txn, @dbi, *args)
       end
       self
+    end
+
+    def each_key(key, data = nil)
+      txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(txn, @dbi)
+      while record = cursor.get(Cursor::NEXT_DUP, key, data)
+        yield record
+      end
+      self
+    ensure
+      cursor.close if cursor
+      txn.abort if txn
     end
 
     def each
@@ -97,7 +116,7 @@ module MDB
     def <<(value)
       txn = Txn.new(@env)
       cursor = Cursor.new(txn, @dbi)
-      record = cursor.get(Cursor::LAST, true)
+      record = cursor.get(Cursor::LAST, nil, nil, true)
       if record
         cursor.put(record.first.to_fix.succ.to_bin, value, MDB::APPEND).close
       else
@@ -114,7 +133,7 @@ module MDB
     def concat(values)
       txn = Txn.new(@env)
       cursor = Cursor.new(txn, @dbi)
-      record = cursor.get(Cursor::LAST, true)
+      record = cursor.get(Cursor::LAST, nil, nil, true)
       key = 0
       if record
         key = record.first.to_fix + 1

@@ -557,6 +557,28 @@ mrb_mdb_dbi_open(mrb_state* mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_mdb_dbi_flags(mrb_state* mrb, mrb_value self)
+{
+    MDB_txn* txn;
+    mrb_int dbi;
+    unsigned int flags;
+
+    mrb_get_args(mrb, "di", &txn, &mdb_txn_type, &dbi);
+    if (dbi < 0 || dbi > UINT_MAX)
+        mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+
+    errno = 0;
+    int err = mdb_dbi_flags(txn, (MDB_dbi)dbi, &flags);
+
+    mrb_mdb_check_error(mrb, err, "mdb_dbi_flags");
+
+    if (flags > MRB_INT_MAX)
+        mrb_raise(mrb, E_RANGE_ERROR, "flags is out of range");
+
+    return mrb_fixnum_value(flags);
+}
+
+static mrb_value
 mrb_mdb_stat(mrb_state* mrb, mrb_value self)
 {
     MDB_txn* txn;
@@ -776,10 +798,22 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
     mrb_assert(cursor);
 
     mrb_int cursor_op;
+    mrb_value key_obj, data_obj;
     mrb_bool static_string = FALSE;
     MDB_val key, data;
 
-    mrb_get_args(mrb, "i|b", &cursor_op, &static_string);
+    mrb_get_args(mrb, "i|oob", &cursor_op, &key_obj, &data_obj, &static_string);
+
+    if (!mrb_nil_p(key_obj)) {
+        key_obj = mrb_str_to_str(mrb, key_obj);
+        key.mv_size = RSTRING_LEN(key_obj);
+        key.mv_data = RSTRING_PTR(key_obj);
+    }
+    if (!mrb_nil_p(data_obj)) {
+        data_obj = mrb_str_to_str(mrb, data_obj);
+        data.mv_size = RSTRING_LEN(data_obj);
+        data.mv_data = RSTRING_PTR(data_obj);
+    }
 
     errno = 0;
     int err = mdb_cursor_get(cursor, &key, &data, cursor_op);
@@ -933,6 +967,7 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_txn_class, "renew", mrb_mdb_txn_renew, MRB_ARGS_NONE());
     mdb_dbi_mod = mrb_define_module_under(mrb, mdb_mod, "Dbi");
     mrb_define_module_function(mrb, mdb_dbi_mod, "open", mrb_mdb_dbi_open, MRB_ARGS_ARG(1, 2));
+    mrb_define_module_function(mrb, mdb_dbi_mod, "flags", mrb_mdb_dbi_flags, MRB_ARGS_REQ(2));
     mrb_define_module_function(mrb, mdb_mod, "stat", mrb_mdb_stat, MRB_ARGS_REQ(2));
     mrb_define_module_function(mrb, mdb_mod, "get", mrb_mdb_get, MRB_ARGS_ARG(3, 1));
     mrb_define_module_function(mrb, mdb_mod, "put", mrb_mdb_put, MRB_ARGS_ARG(4, 1));
