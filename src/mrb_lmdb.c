@@ -256,7 +256,7 @@ mrb_mdb_env_info(mrb_state* mrb, mrb_value self)
     args[4] = stat.me_maxreaders > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_maxreaders) : mrb_fixnum_value(stat.me_maxreaders);
     args[5] = stat.me_numreaders > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_numreaders) : mrb_fixnum_value(stat.me_numreaders);
 
-    return mrb_obj_new(mrb, LMDB_ENV_INFO, 6, args);
+    return mrb_obj_new(mrb, LMDB_ENV_INFO, sizeof(args) / sizeof(args[0]), args);
 }
 
 static mrb_value
@@ -462,7 +462,7 @@ mrb_mdb_txn_begin(mrb_state* mrb, mrb_value self)
     MDB_txn* parent = NULL;
     MDB_txn* txn;
 
-    mrb_get_args(mrb, "d|id", &env, &mdb_env_type, &flags, &parent, &mdb_txn_type);
+    mrb_get_args(mrb, "d|id!", &env, &mdb_env_type, &flags, &parent, &mdb_txn_type);
 
     if (flags < 0 || flags > UINT_MAX)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
@@ -538,7 +538,7 @@ mrb_mdb_dbi_open(mrb_state* mrb, mrb_value self)
     char* name = NULL;
     MDB_dbi dbi;
 
-    mrb_get_args(mrb, "d|iz", &txn, &mdb_txn_type, &flags, &name);
+    mrb_get_args(mrb, "d|iz!", &txn, &mdb_txn_type, &flags, &name);
 
     if (flags < 0 || flags > UINT_MAX)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
@@ -603,7 +603,7 @@ mrb_mdb_stat(mrb_state* mrb, mrb_value self)
     args[4] = stat.ms_overflow_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
     args[5] = stat.ms_entries > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
 
-    return mrb_obj_new(mrb, LMDB_STAT, 6, args);
+    return mrb_obj_new(mrb, LMDB_STAT, sizeof(args) / sizeof(args[0]), args);
 }
 
 static mrb_value
@@ -698,10 +698,10 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
 {
     MDB_txn* txn;
     mrb_int dbi;
-    mrb_value key_obj, data_obj;
+    mrb_value key_obj, data_obj = mrb_nil_value();
     MDB_val key, data;
 
-    int args = mrb_get_args(mrb, "dio|o", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj);
+    mrb_get_args(mrb, "dio|o", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj);
 
     if (dbi < 0 || dbi > UINT_MAX)
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
@@ -710,7 +710,7 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
     key.mv_size = RSTRING_LEN(key_obj);
     key.mv_data = RSTRING_PTR(key_obj);
 
-    if (args == 4) {
+    if (!mrb_nil_p(data_obj)) {
         data_obj = mrb_str_to_str(mrb, data_obj);
         data.mv_size = RSTRING_LEN(data_obj);
         data.mv_data = RSTRING_PTR(data_obj);
@@ -808,11 +808,17 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
         key_obj = mrb_str_to_str(mrb, key_obj);
         key.mv_size = RSTRING_LEN(key_obj);
         key.mv_data = RSTRING_PTR(key_obj);
+    } else {
+        key.mv_size = 0;
+        key.mv_data = NULL;
     }
     if (!mrb_nil_p(data_obj)) {
         data_obj = mrb_str_to_str(mrb, data_obj);
         data.mv_size = RSTRING_LEN(data_obj);
         data.mv_data = RSTRING_PTR(data_obj);
+    } else {
+        data.mv_size = 0;
+        data.mv_data = NULL;
     }
 
     errno = 0;
@@ -996,7 +1002,7 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_cursor_class, "initialize", mrb_mdb_cursor_open, MRB_ARGS_REQ(2));
     mrb_define_method(mrb, mdb_cursor_class, "renew", mrb_mdb_cursor_renew, MRB_ARGS_REQ(1));
     mrb_define_method(mrb, mdb_cursor_class, "close", mrb_mdb_cursor_close, MRB_ARGS_NONE());
-    mrb_define_method(mrb, mdb_cursor_class, "get", mrb_mdb_cursor_get, MRB_ARGS_ARG(1, 1));
+    mrb_define_method(mrb, mdb_cursor_class, "get", mrb_mdb_cursor_get, MRB_ARGS_ARG(1, 3));
     mrb_define_method(mrb, mdb_cursor_class, "put", mrb_mdb_cursor_put, MRB_ARGS_ARG(2, 1));
     mrb_define_method(mrb, mdb_cursor_class, "del", mrb_mdb_cursor_del, MRB_ARGS_OPT(1));
     mrb_define_method(mrb, mdb_cursor_class, "count", mrb_mdb_cursor_count, MRB_ARGS_NONE());

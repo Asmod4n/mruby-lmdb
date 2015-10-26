@@ -21,7 +21,7 @@ Examples
 ```ruby
 env = MDB::Env.new
 env.open('testdb', MDB::NOSUBDIR)
-db = env.database
+db = env.database(MDB::INTEGERKEY)
 
 db << 'hallo0' << 'hallo1' << 'hallo2'
 
@@ -31,6 +31,11 @@ db.concat ['hallo19', 'hallo20'] #for faster batch import
 
 db.each do |k, v|
   puts "#{k.to_fix} = #{v}"
+end
+
+db.transaction(MDB::RDONLY) do |txn, dbi|
+  cursor = MDB::Cursor.new(txn, dbi)
+  puts cursor.set_range(10.to_bin)
 end
 
 puts db.first

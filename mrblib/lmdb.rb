@@ -4,6 +4,7 @@ module MDB
     class Info < Struct.new(:mapaddr, :mapsize, :last_pgno, :last_txnid, :maxreaders, :numreaders); end
 
     def transaction(*args)
+      raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(self, *args)
       yield txn
       txn.commit
@@ -71,10 +72,11 @@ module MDB
       self
     end
 
-    def each_key(key, data = nil)
+    def each_key(key)
+      raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
-      while record = cursor.get(Cursor::NEXT_DUP, key, data)
+      while record = cursor.next_dup(key)
         yield record
       end
       self
@@ -84,9 +86,10 @@ module MDB
     end
 
     def each
+      raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
-      while record = cursor.get(Cursor::NEXT)
+      while record = cursor.next
          yield record
       end
       self
@@ -98,7 +101,7 @@ module MDB
     def first
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
-      cursor.get(Cursor::FIRST)
+      cursor.first
     ensure
       cursor.close if cursor
       txn.abort if txn
@@ -107,7 +110,7 @@ module MDB
     def last
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
-      cursor.get(Cursor::LAST)
+      cursor.last
     ensure
       cursor.close if cursor
       txn.abort if txn
@@ -116,7 +119,7 @@ module MDB
     def <<(value)
       txn = Txn.new(@env)
       cursor = Cursor.new(txn, @dbi)
-      record = cursor.get(Cursor::LAST, nil, nil, true)
+      record = cursor.last
       if record
         cursor.put(record.first.to_fix.succ.to_bin, value, MDB::APPEND).close
       else
@@ -133,7 +136,7 @@ module MDB
     def concat(values)
       txn = Txn.new(@env)
       cursor = Cursor.new(txn, @dbi)
-      record = cursor.get(Cursor::LAST, nil, nil, true)
+      record = cursor.last
       key = 0
       if record
         key = record.first.to_fix + 1
@@ -169,10 +172,20 @@ module MDB
     end
 
     def transaction(*args)
+      raise ArgumentError, "no block given" unless block_given?
       @env.transaction(*args) do |txn|
         yield txn, @dbi
       end
       self
+    end
+  end
+
+  class Cursor
+    [:first, :first_dup, :get_both, :get_both_range, :get_current, :get_multiple, :last, :last_dup, :next, :next_dup, :next_multiple,
+      :next_nodup, :prev, :prev_dup, :prev_nodup, :set, :set_key, :set_range].each do |m|
+      define_method(m) do |key = nil, data = nil, static_string = false|
+        self.get("MDB::Cursor::#{m.to_s.upcase}".constantize, key, data, static_string)
+      end
     end
   end
 end
