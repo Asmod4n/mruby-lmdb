@@ -173,10 +173,27 @@ module MDB
 
     def transaction(*args)
       raise ArgumentError, "no block given" unless block_given?
-      @env.transaction(*args) do |txn|
-        yield txn, @dbi
-      end
+      txn = Txn.new(@env, *args)
+      yield txn, @dbi
+      txn.commit
       self
+    rescue => e
+      txn.abort if txn
+      raise e
+    end
+
+    def cursor(*args)
+      raise ArgumentError, "no block given" unless block_given?
+      txn = Txn.new(@env, *args)
+      cursor = Cursor.new(txn, @dbi)
+      yield cursor
+      cursor.close
+      txn.commit
+      self
+    rescue => e
+      cursor.close if cursor
+      txn.abort if txn
+      raise e
     end
   end
 
@@ -184,7 +201,7 @@ module MDB
     [:first, :first_dup, :get_both, :get_both_range, :get_current, :get_multiple, :last, :last_dup, :next, :next_dup, :next_multiple,
       :next_nodup, :prev, :prev_dup, :prev_nodup, :set, :set_key, :set_range].each do |m|
       define_method(m) do |key = nil, data = nil, static_string = false|
-        self.get("MDB::Cursor::#{m.to_s.upcase}".constantize, key, data, static_string)
+        get("MDB::Cursor::#{m.to_s.upcase}".constantize, key, data, static_string)
       end
     end
   end
