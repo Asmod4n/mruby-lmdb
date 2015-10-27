@@ -3,6 +3,23 @@ module MDB
   class Env
     class Info < Struct.new(:mapaddr, :mapsize, :last_pgno, :last_txnid, :maxreaders, :numreaders); end
 
+    def self.new(options = {})
+      instance = super()
+      options.each do |k, v|
+        case k
+        when :mapsize
+          instance.mapsize = v
+        when :maxreaders
+          instance.maxreaders = v
+        when :maxdbs
+          instance.maxdbs = v
+        else
+          raise ArgumentError, "unknown option #{k}"
+        end
+      end
+      instance
+    end
+
     def transaction(*args)
       raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(self, *args)

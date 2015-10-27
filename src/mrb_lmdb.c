@@ -119,9 +119,10 @@ static inline void
 mrb_mdb_check_error(mrb_state* mrb, int err, const char* func)
 {
     if (err != MDB_SUCCESS) {
-        if (err >= 0)
+        if (err >= 0) {
+            errno = err;
             mrb_sys_fail(mrb, func);
-        else {
+        } else {
             mrb_value func_str = mrb_str_new_static(mrb, func, strlen(func));
             const char* strerr = mdb_strerror(err);
             mrb_value error_str = mrb_str_new_static(mrb, strerr, strlen(strerr));
