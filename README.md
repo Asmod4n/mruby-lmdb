@@ -33,9 +33,8 @@ db.each do |k, v|
   puts "#{k.to_fix} = #{v}"
 end
 
-db.transaction(MDB::RDONLY) do |txn, dbi|
-  cursor = MDB::Cursor.new(txn, dbi)
-  puts cursor.set_range(10.to_bin)
+db.cursor(MDB::RDONLY) do |cursor|
+  puts cursor.set_range(10.to_bin) # finds the nearest or exact key
 end
 
 puts db.first
