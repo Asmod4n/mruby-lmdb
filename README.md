@@ -27,14 +27,14 @@ db << 'hallo0' << 'hallo1' << 'hallo2'
 
 db[18.to_bin] = 'hallo18'
 
-db.concat ['hallo19', 'hallo20'] #for faster batch import
+db.concat ['hallo19', 'hallo20'] # for faster batch import
 
 db.each do |k, v|
   puts "#{k.to_fix} = #{v}"
 end
 
 db.cursor(MDB::RDONLY) do |cursor|
-  puts cursor.set_range(10.to_bin) # finds the nearest or exact key
+  puts cursor.set_range(10.to_bin) # finds the exact or next larger key, see https://github.com/LMDB/lmdb/blob/LMDB_0.9.16/libraries/liblmdb/lmdb.h#L350 for more cursors.
 end
 
 puts db.first
