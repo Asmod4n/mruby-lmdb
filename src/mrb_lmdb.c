@@ -444,6 +444,25 @@ mrb_mdb_env_get_maxkeysize(mrb_state* mrb, mrb_value self)
         return mrb_fixnum_value(maxkeysize);
 }
 
+static mrb_value
+mrb_mdb_reader_check(mrb_state* mrb, mrb_value self)
+{
+    MDB_env* env = (MDB_env*)DATA_PTR(self);
+    mrb_assert(env);
+
+    int dead;
+
+    errno = 0;
+    int err = mdb_reader_check(env, &dead);
+
+    mrb_mdb_check_error(mrb, err, "mdb_reader_check");
+
+    if (dead > MRB_INT_MAX)
+        return mrb_float_value(mrb, dead);
+    else
+        return mrb_fixnum_value(dead);
+}
+
 static void
 mrb_mdb_txn_free(mrb_state* mrb, void* p)
 {
@@ -964,6 +983,7 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_env_class, "maxreaders", mrb_mdb_env_get_maxreaders, MRB_ARGS_NONE());
     mrb_define_method(mrb, mdb_env_class, "maxdbs=", mrb_mdb_env_set_maxdbs, MRB_ARGS_REQ(1));
     mrb_define_method(mrb, mdb_env_class, "maxkeysize", mrb_mdb_env_get_maxkeysize, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mdb_env_class, "reader_check", mrb_mdb_reader_check, MRB_ARGS_NONE());
     mdb_txn_class = mrb_define_class_under(mrb, mdb_mod, "Txn", mrb->object_class);
     MRB_SET_INSTANCE_TT(mdb_txn_class, MRB_TT_DATA);
     mrb_define_method(mrb, mdb_txn_class, "initialize", mrb_mdb_txn_begin, MRB_ARGS_ARG(1, 2));
