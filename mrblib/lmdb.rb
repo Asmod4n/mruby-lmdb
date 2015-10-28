@@ -93,8 +93,12 @@ module MDB
       raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(@env, RDONLY)
       cursor = Cursor.new(txn, @dbi)
-      while record = cursor.next_dup(key)
+      record = cursor.set_key(key)
+      if record
         yield record
+        while record = cursor.next_dup(key)
+          yield record
+        end
       end
       self
     ensure
