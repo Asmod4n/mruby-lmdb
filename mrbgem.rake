@@ -3,5 +3,10 @@
   spec.author  = 'Hendrik Beskow'
   spec.summary = 'mruby bindings to lmdb'
   spec.add_dependency 'mruby-errno'
-  spec.linker.libraries << 'lmdb'
+
+  if build.toolchains.include?('android')
+    spec.cc.flags << '-DHAVE_PTHREADS'
+  else
+    spec.linker.libraries << 'pthread'
+  end
 end

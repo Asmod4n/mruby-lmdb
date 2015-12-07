@@ -1,20 +1,6 @@
 ﻿# mruby-lmdb
 mruby wrapper for Lightning Memory-Mapped Database from Symas http://symas.com/mdb/
 
-Prerequisites
-=============
-lmdb needs to be somewhere your compiler can find it.
-
-On Ubuntu:
-```sh
-apt install liblmdb-dev
-```
-
-On OS X:
-```sh
-brew install lmdb
-```
-
 Examples
 ========
 

@@ -96,7 +96,7 @@ module MDB
       record = cursor.set_key(key)
       if record
         yield record
-        while record = cursor.next_dup(key)
+        while record = cursor.next_dup
           yield record
         end
       end
