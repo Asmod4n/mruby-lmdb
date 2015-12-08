@@ -123,10 +123,12 @@ mrb_mdb_check_error(mrb_state* mrb, int err, const char* func)
             errno = err;
             mrb_sys_fail(mrb, func);
         } else {
+            mrb_value error2class = mrb_const_get(mrb, mrb_obj_value(E_LMDB_ERROR), mrb_intern_lit(mrb, "Error2Class"));
+            struct RClass* errclass = mrb_class_ptr(mrb_hash_get(mrb, error2class, mrb_fixnum_value(err)));
             mrb_value func_str = mrb_str_new_static(mrb, func, strlen(func));
-            const char* strerr = mdb_strerror(err);
-            mrb_value error_str = mrb_str_new_static(mrb, strerr, strlen(strerr));
-            mrb_raisef(mrb, E_LMDB_ERROR, "%S: %S", func_str, error_str);
+            const char* errstr = mdb_strerror(err);
+            mrb_value error_str = mrb_str_new_static(mrb, errstr, strlen(errstr));
+            mrb_raisef(mrb, errclass, "%S: %S", func_str, error_str);
         }
     }
 }
@@ -932,7 +934,7 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
 
 void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 {
-    struct RClass *mdb_mod, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
+    struct RClass *mdb_mod, *mdb_error, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
 
     mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix, MRB_ARGS_NONE());
     mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin, MRB_ARGS_NONE());
@@ -965,7 +967,7 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_const(mrb, mdb_mod, "APPENDDUP", mrb_fixnum_value(MDB_APPENDDUP));
     mrb_define_const(mrb, mdb_mod, "MULTIPLE", mrb_fixnum_value(MDB_MULTIPLE));
     mrb_define_const(mrb, mdb_mod, "CP_COMPACT", mrb_fixnum_value(MDB_CP_COMPACT));
-    mrb_define_class_under(mrb, mdb_mod, "Error", E_RUNTIME_ERROR);
+    mdb_error = mrb_define_class_under(mrb, mdb_mod, "Error", E_RUNTIME_ERROR);
     mdb_env_class = mrb_define_class_under(mrb, mdb_mod, "Env", mrb->object_class);
     MRB_SET_INSTANCE_TT(mdb_env_class, MRB_TT_DATA);
     mrb_define_method(mrb, mdb_env_class, "initialize", mrb_mdb_env_create, MRB_ARGS_NONE());
@@ -1027,6 +1029,18 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_cursor_class, "put", mrb_mdb_cursor_put, MRB_ARGS_ARG(2, 1));
     mrb_define_method(mrb, mdb_cursor_class, "del", mrb_mdb_cursor_del, MRB_ARGS_OPT(1));
     mrb_define_method(mrb, mdb_cursor_class, "count", mrb_mdb_cursor_count, MRB_ARGS_NONE());
+    mrb_value error2class = mrb_hash_new(mrb);
+    mrb_define_const(mrb, mdb_error, "Error2Class", error2class);
+
+#define define_error(MDB_ERROR, RB_CLASS_NAME) \
+    do { \
+         int ai = mrb_gc_arena_save(mrb); \
+         struct RClass *err = mrb_define_class_under(mrb, mdb_mod, RB_CLASS_NAME, mdb_error); \
+         mrb_hash_set(mrb, error2class, mrb_fixnum_value(MDB_ERROR), mrb_obj_value(err)); \
+         mrb_gc_arena_restore(mrb, ai); \
+    } while(0)
+
+#include "known_errors_def.cstub"
 }
 
 void mrb_mruby_lmdb_gem_final(mrb_state* mrb)
