@@ -1032,15 +1032,27 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_value error2class = mrb_hash_new(mrb);
     mrb_define_const(mrb, mdb_error, "Error2Class", error2class);
 
-#define define_error(MDB_ERROR, RB_CLASS_NAME) \
+#define mrb_lmdb_define_error(MDB_ERROR, RB_CLASS_NAME) \
     do { \
-         int ai = mrb_gc_arena_save(mrb); \
-         struct RClass *err = mrb_define_class_under(mrb, mdb_mod, RB_CLASS_NAME, mdb_error); \
-         mrb_hash_set(mrb, error2class, mrb_fixnum_value(MDB_ERROR), mrb_obj_value(err)); \
-         mrb_gc_arena_restore(mrb, ai); \
+        int ai = mrb_gc_arena_save(mrb); \
+        struct RClass *err = mrb_define_class_under(mrb, mdb_mod, RB_CLASS_NAME, mdb_error); \
+        mrb_hash_set(mrb, error2class, mrb_fixnum_value(MDB_ERROR), mrb_obj_value(err)); \
+        mrb_gc_arena_restore(mrb, ai); \
     } while(0)
 
 #include "known_errors_def.cstub"
+
+    mrb_value cursor_ops = mrb_hash_new(mrb);
+    mrb_define_const(mrb, mdb_cursor_class, "Ops", cursor_ops);
+
+#define mrb_lmdb_define_cursor_op(MDB_CURSOR_OP, RB_CURSOR_OP_SYM) \
+    do { \
+        int ai = mrb_gc_arena_save(mrb); \
+        mrb_hash_set(mrb, cursor_ops, mrb_symbol_value(mrb_intern_lit(mrb, RB_CURSOR_OP_SYM)), mrb_fixnum_value(MDB_CURSOR_OP)); \
+        mrb_gc_arena_restore(mrb, ai); \
+    } while(0)
+
+#include "known_cursor_ops_def.cstub"
 }
 
 void mrb_mruby_lmdb_gem_final(mrb_state* mrb)

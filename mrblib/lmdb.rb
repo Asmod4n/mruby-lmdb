@@ -27,7 +27,7 @@ module MDB
       txn.commit
       self
     rescue => e
-      txn.abort if txn
+      @read_txn.reset
       raise e
     end
 
@@ -46,25 +46,30 @@ module MDB
       @env.transaction do |txn|
         @dbi = Dbi.open(txn, *args)
       end
+      @read_txn = Txn.new(@env, RDONLY)
+      @cursor = Cursor.new(@read_txn, @dbi)
+      @read_txn.reset
     end
 
     def flags
-      txn = Txn.new(@env, RDONLY)
-      Dbi.flags(txn, @dbi)
+      @read_txn.renew
+      Dbi.flags(@read_txn, @dbi)
     ensure
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def [](key)
-      txn = Txn.new(@env, RDONLY)
-      MDB.get(txn, @dbi, key)
+      @read_txn.renew
+      @cursor.renew(@read_txn)
+      @cursor.set_key(key)
     ensure
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def fetch(key, default = nil)
-      txn = Txn.new(@env, RDONLY)
-      val = MDB.get(txn, @dbi, key)
+      @read_txn.renew
+      @cursor.renew(@read_txn)
+      val = @cursor.set_key(key)
       unless val
         return yield(key) if block_given?
         return default if default
@@ -72,7 +77,7 @@ module MDB
       end
       val
     ensure
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def []=(key, data)
@@ -91,50 +96,47 @@ module MDB
 
     def each_key(key)
       raise ArgumentError, "no block given" unless block_given?
-      txn = Txn.new(@env, RDONLY)
-      cursor = Cursor.new(txn, @dbi)
-      record = cursor.set_key(key)
+      @read_txn.renew
+      @cursor.renew(@read_txn)
+      record = @cursor.set_key(key)
       if record
         yield record
-        while record = cursor.next_dup
+        while record = @cursor.next_dup
           yield record
         end
       end
       self
     ensure
-      cursor.close if cursor
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def each
       raise ArgumentError, "no block given" unless block_given?
-      txn = Txn.new(@env, RDONLY)
-      cursor = Cursor.new(txn, @dbi)
-      while record = cursor.next
+      @read_txn.renew
+      @cursor.renew(@read_txn)
+      yield @cursor.first
+      while record = @cursor.next
          yield record
       end
       self
     ensure
-      cursor.close if cursor
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def first
-      txn = Txn.new(@env, RDONLY)
-      cursor = Cursor.new(txn, @dbi)
-      cursor.first
+      @read_txn.renew
+      @cursor.renew(@read_txn)
+      @cursor.first
     ensure
-      cursor.close if cursor
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def last
-      txn = Txn.new(@env, RDONLY)
-      cursor = Cursor.new(txn, @dbi)
-      cursor.last
+      @read_txn.renew
+      @cursor.renew(@read_txn)
+      @cursor.last
     ensure
-      cursor.close if cursor
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def <<(value)
@@ -160,7 +162,7 @@ module MDB
       record = cursor.last
       key = 0
       if record
-        key = record.first.to_fix + 1
+        key = record.first.to_fix.succ
       end
       values.each do |value|
         cursor.put(key.to_bin, value, MDB::APPEND)
@@ -176,10 +178,10 @@ module MDB
     end
 
     def stat
-      txn = Txn.new(@env, RDONLY)
-      MDB.stat(txn, @dbi)
+      @read_txn.renew
+      MDB.stat(@read_txn, @dbi)
     ensure
-      txn.abort if txn
+      @read_txn.reset
     end
 
     def length
@@ -222,7 +224,7 @@ module MDB
     [:first, :first_dup, :get_both, :get_both_range, :get_current, :get_multiple, :last, :last_dup, :next, :next_dup, :next_multiple,
       :next_nodup, :prev, :prev_dup, :prev_nodup, :set, :set_key, :set_range].each do |m|
       define_method(m) do |key = nil, data = nil, static_string = false|
-        get("MDB::Cursor::#{m.to_s.upcase}".constantize, key, data, static_string)
+        get(Ops[m], key, data, static_string)
       end
     end
   end
