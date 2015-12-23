@@ -114,9 +114,12 @@ module MDB
       raise ArgumentError, "no block given" unless block_given?
       @read_txn.renew
       @cursor.renew(@read_txn)
-      yield @cursor.first
-      while record = @cursor.next
-         yield record
+      record = @cursor.first
+      if record
+        yield record
+        while record = @cursor.next
+           yield record
+        end
       end
       self
     ensure
