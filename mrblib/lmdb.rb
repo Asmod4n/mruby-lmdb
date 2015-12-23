@@ -27,7 +27,7 @@ module MDB
       txn.commit
       self
     rescue => e
-      @read_txn.reset
+      txn.abort if txn
       raise e
     end
 
