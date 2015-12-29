@@ -23,9 +23,9 @@ module MDB
     def transaction(*args)
       raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(self, *args)
-      yield txn
+      result = yield txn
       txn.commit
-      self
+      result
     rescue => e
       txn.abort if txn
       raise e
@@ -43,8 +43,8 @@ module MDB
 
     def initialize(env, *args)
       @env = env
-      @env.transaction do |txn|
-        @dbi = Dbi.open(txn, *args)
+      @dbi = @env.transaction do |txn|
+        Dbi.open(txn, *args)
       end
       @read_txn = Txn.new(@env, RDONLY)
       @cursor = Cursor.new(@read_txn, @dbi)
@@ -118,7 +118,7 @@ module MDB
       if record
         yield record
         while record = @cursor.next
-           yield record
+          yield record
         end
       end
       self
@@ -200,9 +200,9 @@ module MDB
     def transaction(*args)
       raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(@env, *args)
-      yield txn, @dbi
+      result = yield txn, @dbi
       txn.commit
-      self
+      result
     rescue => e
       txn.abort if txn
       raise e
@@ -212,10 +212,10 @@ module MDB
       raise ArgumentError, "no block given" unless block_given?
       txn = Txn.new(@env, *args)
       cursor = Cursor.new(txn, @dbi)
-      yield cursor
+      result = yield cursor
       cursor.close
       txn.commit
-      self
+      result
     rescue => e
       cursor.close if cursor
       txn.abort if txn
