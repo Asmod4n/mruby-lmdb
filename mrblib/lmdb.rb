@@ -91,7 +91,6 @@ module MDB
       @env.transaction do |txn|
         MDB.del(txn, @dbi, *args)
       end
-      self
     end
 
     def each_key(key)
