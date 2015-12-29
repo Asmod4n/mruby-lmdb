@@ -744,8 +744,14 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
 
     errno = 0;
     int err = mdb_del(txn, (MDB_dbi)dbi, &key, &data);
-
-    mrb_mdb_check_error(mrb, err, "mdb_del");
+    if (err == MDB_SUCCESS) {
+        return data_obj;
+    }
+    else if (err == MDB_NOTFOUND) {
+        return mrb_nil_value();
+    } else {
+        mrb_mdb_check_error(mrb, err, "mdb_del");
+    }
 
     return self;
 }
