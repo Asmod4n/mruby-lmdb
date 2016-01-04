@@ -1,4 +1,4 @@
-﻿#include "mruby/lmdb.h"
+#include "mruby/lmdb.h"
 #include "mrb_lmdb.h"
 
 static mrb_value
@@ -27,8 +27,7 @@ mrb_fix2bin(mrb_state* mrb, mrb_value self)
         p[2] = (unsigned char)(number >> 8) & 0xFF;
         p[3] = (unsigned char)number & 0xFF;
 #endif
-    }
-    else {
+    } else {
 #if defined(MRB_INT64)
         p[0] = (unsigned char)number & 0xFF;
         p[1] = (unsigned char)(number >> 8) & 0xFF;
@@ -55,8 +54,9 @@ mrb_fix2bin(mrb_state* mrb, mrb_value self)
 static mrb_value
 mrb_bin2fix(mrb_state* mrb, mrb_value self)
 {
-    if (RSTRING_LEN(self) != sizeof(mrb_int))
+    if (RSTRING_LEN(self) != sizeof(mrb_int)) {
         mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
+    }
 
     unsigned char* p = (unsigned char*)RSTRING_PTR(self);
     mrb_int number;
@@ -80,8 +80,7 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
               + (((mrb_int) (p[2])) << 8)
               + (((mrb_int) (p[3])));
 #endif
-    }
-    else {
+    } else {
 #if defined(MRB_INT64)
         number = (((mrb_int)(p[0])))
             + (((mrb_int)(p[1])) << 8)
@@ -159,11 +158,13 @@ mrb_mdb_env_open(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "z|ii", &path, &flags, &mode);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
-    if (mode < INT_MIN || mode > INT_MAX)
+    if (mode < INT_MIN || mode > INT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "mode is out of range");
+    }
 
     errno = 0;
     int err = mdb_env_open(env, (const char*)path,
@@ -203,8 +204,9 @@ mrb_mdb_env_copy2(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "z|i", &path, &flags);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     errno = 0;
     int err = mdb_env_copy2(env, (const char*)path, (unsigned int)flags);
@@ -228,12 +230,12 @@ mrb_mdb_env_stat(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, err, "mdb_env_stat");
 
-    args[0] = stat.ms_psize > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
-    args[1] = stat.ms_depth > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
-    args[2] = stat.ms_branch_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_branch_pages) : mrb_fixnum_value(stat.ms_branch_pages);
-    args[3] = stat.ms_leaf_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_leaf_pages) : mrb_fixnum_value(stat.ms_leaf_pages);
-    args[4] = stat.ms_overflow_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
-    args[5] = stat.ms_entries > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
+    args[0] = MRB_INT_MAX < stat.ms_psize ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
+    args[1] = MRB_INT_MAX < stat.ms_depth ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
+    args[2] = MRB_INT_MAX < stat.ms_branch_pages ? mrb_float_value(mrb, stat.ms_branch_pages) : mrb_fixnum_value(stat.ms_branch_pages);
+    args[3] = MRB_INT_MAX < stat.ms_leaf_pages ? mrb_float_value(mrb, stat.ms_leaf_pages) : mrb_fixnum_value(stat.ms_leaf_pages);
+    args[4] = MRB_INT_MAX < stat.ms_overflow_pages ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
+    args[5] = MRB_INT_MAX < stat.ms_entries ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
 
     return mrb_obj_new(mrb, LMDB_STAT, sizeof(args) / sizeof(args[0]), args);
 }
@@ -253,11 +255,11 @@ mrb_mdb_env_info(mrb_state* mrb, mrb_value self)
     mrb_mdb_check_error(mrb, err, "mdb_env_info");
 
     args[0] = stat.me_mapaddr ? mrb_cptr_value(mrb, stat.me_mapaddr) : mrb_nil_value();
-    args[1] = stat.me_mapsize > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_mapsize) : mrb_fixnum_value(stat.me_mapsize);
-    args[2] = stat.me_last_pgno > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_last_pgno) : mrb_fixnum_value(stat.me_last_pgno);
-    args[3] = stat.me_last_txnid > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_last_txnid) : mrb_fixnum_value(stat.me_last_txnid);
-    args[4] = stat.me_maxreaders > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_maxreaders) : mrb_fixnum_value(stat.me_maxreaders);
-    args[5] = stat.me_numreaders > MRB_INT_MAX ? mrb_float_value(mrb, stat.me_numreaders) : mrb_fixnum_value(stat.me_numreaders);
+    args[1] = MRB_INT_MAX < stat.me_mapsize ? mrb_float_value(mrb, stat.me_mapsize) : mrb_fixnum_value(stat.me_mapsize);
+    args[2] = MRB_INT_MAX < stat.me_last_pgno ? mrb_float_value(mrb, stat.me_last_pgno) : mrb_fixnum_value(stat.me_last_pgno);
+    args[3] = MRB_INT_MAX < stat.me_last_txnid ? mrb_float_value(mrb, stat.me_last_txnid) : mrb_fixnum_value(stat.me_last_txnid);
+    args[4] = MRB_INT_MAX < stat.me_maxreaders ? mrb_float_value(mrb, stat.me_maxreaders) : mrb_fixnum_value(stat.me_maxreaders);
+    args[5] = MRB_INT_MAX < stat.me_numreaders ? mrb_float_value(mrb, stat.me_numreaders) : mrb_fixnum_value(stat.me_numreaders);
 
     return mrb_obj_new(mrb, LMDB_ENV_INFO, sizeof(args) / sizeof(args[0]), args);
 }
@@ -304,8 +306,9 @@ mrb_mdb_env_set_flags(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "|ib", &flags, &onoff);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     errno = 0;
     int err = mdb_env_set_flags(env, (unsigned int)flags, (int)onoff);
@@ -328,10 +331,11 @@ mrb_mdb_env_get_flags(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, err, "mdb_env_get_flags");
 
-    if (flags < MRB_INT_MIN || flags > MRB_INT_MAX)
+    if (flags < MRB_INT_MIN || flags > MRB_INT_MAX) {
         return mrb_float_value(mrb, flags);
-    else
+    } else {
         return mrb_fixnum_value(flags);
+    }
 }
 
 static mrb_value
@@ -360,8 +364,9 @@ mrb_mdb_env_set_mapsize(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i", &size);
 
-    if (size < 0 || size > SIZE_MAX)
+    if (size < 0 || size > SIZE_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "size is out of range");
+    }
 
     errno = 0;
     int err = mdb_env_set_mapsize(env, (size_t)size);
@@ -381,8 +386,9 @@ mrb_mdb_env_set_maxreaders(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i", &readers);
 
-    if (readers < 0 || readers > UINT_MAX)
+    if (readers < 0 || readers > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "readers are out of range");
+    }
 
     errno = 0;
     int err = mdb_env_set_maxreaders(env, (unsigned int)readers);
@@ -405,10 +411,11 @@ mrb_mdb_env_get_maxreaders(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, err, "mdb_env_get_maxreaders");
 
-    if (readers > MRB_INT_MAX)
+    if (MRB_INT_MAX < readers) {
         return mrb_float_value(mrb, readers);
-    else
+    } else {
         return mrb_fixnum_value(readers);
+    }
 }
 
 static mrb_value
@@ -421,8 +428,9 @@ mrb_mdb_env_set_maxdbs(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i", &dbs);
 
-    if (dbs < 0 || dbs > UINT_MAX)
+    if (dbs < 0 || dbs > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbs is out of range");
+    }
 
     errno = 0;
     int err = mdb_env_set_maxdbs(env, (MDB_dbi)dbs);
@@ -441,10 +449,11 @@ mrb_mdb_env_get_maxkeysize(mrb_state* mrb, mrb_value self)
     errno = 0;
     int maxkeysize = mdb_env_get_maxkeysize(env);
 
-    if (maxkeysize > MRB_INT_MAX)
+    if (MRB_INT_MAX < maxkeysize) {
         return mrb_float_value(mrb, maxkeysize);
-    else
+    } else {
         return mrb_fixnum_value(maxkeysize);
+    }
 }
 
 static mrb_value
@@ -460,10 +469,11 @@ mrb_mdb_reader_check(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, err, "mdb_reader_check");
 
-    if (dead > MRB_INT_MAX)
+    if (MRB_INT_MAX < dead) {
         return mrb_float_value(mrb, dead);
-    else
+    } else {
         return mrb_fixnum_value(dead);
+    }
 }
 
 static void
@@ -486,8 +496,9 @@ mrb_mdb_txn_begin(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "d|id!", &env, &mdb_env_type, &flags, &parent, &mdb_txn_type);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     errno = 0;
     int err = mdb_txn_begin(env, parent, (unsigned int)flags, &txn);
@@ -562,15 +573,16 @@ mrb_mdb_dbi_open(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "d|iz!", &txn, &mdb_txn_type, &flags, &name);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     errno = 0;
     int err = mdb_dbi_open(txn, (const char*)name, (unsigned int)flags, &dbi);
 
     mrb_mdb_check_error(mrb, err, "mdb_dbi_open");
 
-    if (dbi > MRB_INT_MAX) {
+    if (MRB_INT_MAX < dbi) {
         mdb_dbi_close(mdb_txn_env(txn), dbi);
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
@@ -586,16 +598,18 @@ mrb_mdb_dbi_flags(mrb_state* mrb, mrb_value self)
     unsigned int flags;
 
     mrb_get_args(mrb, "di", &txn, &mdb_txn_type, &dbi);
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0 || dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+    }
 
     errno = 0;
     int err = mdb_dbi_flags(txn, (MDB_dbi)dbi, &flags);
 
     mrb_mdb_check_error(mrb, err, "mdb_dbi_flags");
 
-    if (flags > MRB_INT_MAX)
+    if (flags > MRB_INT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags is out of range");
+    }
 
     return mrb_fixnum_value(flags);
 }
@@ -618,12 +632,12 @@ mrb_mdb_stat(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, err, "mdb_stat");
 
-    args[0] = stat.ms_psize > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
-    args[1] = stat.ms_depth > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
-    args[2] = stat.ms_branch_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_branch_pages) : mrb_fixnum_value(stat.ms_branch_pages);
-    args[3] = stat.ms_leaf_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_leaf_pages) : mrb_fixnum_value(stat.ms_leaf_pages);
-    args[4] = stat.ms_overflow_pages > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
-    args[5] = stat.ms_entries > MRB_INT_MAX ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
+    args[0] = MRB_INT_MAX < stat.ms_psize ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
+    args[1] = MRB_INT_MAX < stat.ms_depth ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
+    args[2] = MRB_INT_MAX < stat.ms_branch_pages ? mrb_float_value(mrb, stat.ms_branch_pages) : mrb_fixnum_value(stat.ms_branch_pages);
+    args[3] = MRB_INT_MAX < stat.ms_leaf_pages ? mrb_float_value(mrb, stat.ms_leaf_pages) : mrb_fixnum_value(stat.ms_leaf_pages);
+    args[4] = MRB_INT_MAX < stat.ms_overflow_pages ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
+    args[5] = MRB_INT_MAX < stat.ms_entries ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
 
     return mrb_obj_new(mrb, LMDB_STAT, sizeof(args) / sizeof(args[0]), args);
 }
@@ -637,8 +651,9 @@ mrb_mdb_drop(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "di|b", &txn, &mdb_txn_type, &dbi, &del);
 
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0 || dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+    }
 
     errno = 0;
     int err = mdb_drop(txn, (MDB_dbi)dbi, (int)del);
@@ -659,8 +674,9 @@ mrb_mdb_get(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "dio|b", &txn, &mdb_txn_type, &dbi, &key_obj, &static_string);
 
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0 || dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+    }
 
     key_obj = mrb_str_to_str(mrb, key_obj);
     key.mv_size = RSTRING_LEN(key_obj);
@@ -670,15 +686,17 @@ mrb_mdb_get(mrb_state* mrb, mrb_value self)
     int err = mdb_get(txn, (MDB_dbi)dbi, &key, &data);
 
     if (err == MDB_SUCCESS) {
-        if (static_string)
+        if (static_string) {
             return mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size);
-        else
+        } else {
             return mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
+        }
     }
-    else if (err == MDB_NOTFOUND)
+    else if (err == MDB_NOTFOUND) {
         return mrb_nil_value();
-    else
+    } else {
         mrb_mdb_check_error(mrb, err, "mdb_get");
+    }
 
     return self;
 }
@@ -694,11 +712,13 @@ mrb_mdb_put(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "dioo|i", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj, &flags);
 
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0 || dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+    }
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     key_obj = mrb_str_to_str(mrb, key_obj);
     key.mv_size = RSTRING_LEN(key_obj);
@@ -725,8 +745,9 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "dio|o", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj);
 
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0 || dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+    }
 
     key_obj = mrb_str_to_str(mrb, key_obj);
     key.mv_size = RSTRING_LEN(key_obj);
@@ -736,8 +757,7 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
         data_obj = mrb_str_to_str(mrb, data_obj);
         data.mv_size = RSTRING_LEN(data_obj);
         data.mv_data = RSTRING_PTR(data_obj);
-    }
-    else {
+    } else {
         data.mv_size = 0;
         data.mv_data = NULL;
     }
@@ -775,8 +795,9 @@ mrb_mdb_cursor_open(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "di", &txn, &mdb_txn_type, &dbi);
 
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0 || dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
+    }
 
     errno = 0;
     int err = mdb_cursor_open(txn, (MDB_dbi)dbi, &cursor);
@@ -853,17 +874,19 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
     int err = mdb_cursor_get(cursor, &key, &data, cursor_op);
 
     if (err == MDB_SUCCESS) {
-        if (static_string)
+        if (static_string) {
             return mrb_assoc_new(mrb, mrb_str_new_static(mrb, (const char*)key.mv_data, key.mv_size),
                 mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size));
-        else
+        } else {
             return mrb_assoc_new(mrb, mrb_str_new(mrb, (const char*)key.mv_data, key.mv_size),
                 mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size));
+        }
     }
-    else if (err == MDB_NOTFOUND)
+    else if (err == MDB_NOTFOUND) {
         return mrb_nil_value();
-    else
+    } else {
         mrb_mdb_check_error(mrb, err, "mdb_cursor_get");
+    }
 
     return self;
 }
@@ -880,8 +903,9 @@ mrb_mdb_cursor_put(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "oo|i", &key_obj, &data_obj, &flags);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     key_obj = mrb_str_to_str(mrb, key_obj);
     key.mv_size = RSTRING_LEN(key_obj);
@@ -908,8 +932,9 @@ mrb_mdb_cursor_del(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "|i", &flags);
 
-    if (flags < 0 || flags > UINT_MAX)
+    if (flags < 0 || flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
+    }
 
     errno = 0;
     int err = mdb_cursor_del(cursor, (unsigned int)flags);
@@ -932,10 +957,11 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, err, "mdb_cursor_count");
 
-    if (count > MRB_INT_MAX)
+    if (MRB_INT_MAX < count) {
         return mrb_float_value(mrb, count);
-    else
+    } else {
         return mrb_fixnum_value(count);
+    }
 }
 
 void mrb_mruby_lmdb_gem_init(mrb_state* mrb)

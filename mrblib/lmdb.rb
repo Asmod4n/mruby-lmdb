@@ -220,6 +220,35 @@ module MDB
       txn.abort if txn
       raise e
     end
+
+    def to_a
+      dupsort = flags & DUPSORT > 0
+      ary = []
+      each do |key, value|
+        if dupsort
+          each_key(key) {|_, value| ary << value}
+        else
+          ary << value
+        end
+      end
+      ary
+    end
+
+    def to_h
+      dupsort = flags & DUPSORT > 0
+      hsh = {}
+      each do |key, value|
+        if dupsort
+          each_key(key) do |key, value|
+            hsh[key] ||= []
+            hsh[key] << value
+          end
+        else
+          hsh[key] = value
+        end
+      end
+      hsh
+    end
   end
 
   class Cursor
