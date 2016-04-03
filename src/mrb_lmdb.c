@@ -847,7 +847,7 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
     mrb_assert(cursor);
 
     mrb_int cursor_op;
-    mrb_value key_obj, data_obj;
+    mrb_value key_obj = mrb_nil_value(), data_obj = mrb_nil_value();
     mrb_bool static_string = FALSE;
     MDB_val key, data;
 
@@ -875,12 +875,13 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
 
     if (err == MDB_SUCCESS) {
         if (static_string) {
-            return mrb_assoc_new(mrb, mrb_str_new_static(mrb, (const char*)key.mv_data, key.mv_size),
-                mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size));
+            key_obj = mrb_str_new_static(mrb, (const char*)key.mv_data, key.mv_size);
+            data_obj = mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size);
         } else {
-            return mrb_assoc_new(mrb, mrb_str_new(mrb, (const char*)key.mv_data, key.mv_size),
-                mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size));
+            key_obj = mrb_str_new(mrb, (const char*)key.mv_data, key.mv_size);
+            data_obj = mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
         }
+        return mrb_assoc_new(mrb, key_obj, data_obj);
     }
     else if (err == MDB_NOTFOUND) {
         return mrb_nil_value();
@@ -1054,6 +1055,7 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_const(mrb, mdb_cursor_class, "SET", mrb_fixnum_value(MDB_SET));
     mrb_define_const(mrb, mdb_cursor_class, "SET_KEY", mrb_fixnum_value(MDB_SET_KEY));
     mrb_define_const(mrb, mdb_cursor_class, "SET_RANGE", mrb_fixnum_value(MDB_SET_RANGE));
+    mrb_define_const(mrb, mdb_cursor_class, "PREV_MULTIPLE", mrb_fixnum_value(MDB_PREV_MULTIPLE));
     mrb_define_method(mrb, mdb_cursor_class, "initialize", mrb_mdb_cursor_open, MRB_ARGS_REQ(2));
     mrb_define_method(mrb, mdb_cursor_class, "renew", mrb_mdb_cursor_renew, MRB_ARGS_REQ(1));
     mrb_define_method(mrb, mdb_cursor_class, "close", mrb_mdb_cursor_close, MRB_ARGS_NONE());

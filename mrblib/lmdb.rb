@@ -253,7 +253,7 @@ module MDB
 
   class Cursor
     [:first, :first_dup, :get_both, :get_both_range, :get_current, :get_multiple, :last, :last_dup, :next, :next_dup, :next_multiple,
-      :next_nodup, :prev, :prev_dup, :prev_nodup, :set, :set_key, :set_range].each do |m|
+      :next_nodup, :prev, :prev_dup, :prev_nodup, :set, :set_key, :set_range, :prev_multiple].each do |m|
       define_method(m) do |key = nil, data = nil, static_string = false|
         get(Ops[m], key, data, static_string)
       end

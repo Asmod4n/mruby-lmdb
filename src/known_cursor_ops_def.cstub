@@ -16,3 +16,4 @@ mrb_lmdb_define_cursor_op(MDB_PREV_NODUP, "prev_nodup");
 mrb_lmdb_define_cursor_op(MDB_SET, "set");
 mrb_lmdb_define_cursor_op(MDB_SET_KEY, "set_key");
 mrb_lmdb_define_cursor_op(MDB_SET_RANGE, "set_range");
+mrb_lmdb_define_cursor_op(MDB_PREV_MULTIPLE, "prev_multiple");
