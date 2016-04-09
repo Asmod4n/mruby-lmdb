@@ -43,12 +43,19 @@ module MDB
 
     def initialize(env, *args)
       @env = env
-      @dbi = @env.transaction do |txn|
-        Dbi.open(txn, *args)
-      end
+      @dbi = @env.transaction {|txn| Dbi.open(txn, *args)}
       @read_txn = Txn.new(@env, RDONLY)
       @cursor = Cursor.new(@read_txn, @dbi)
       @read_txn.reset
+    end
+
+    def renew_read_txn
+      @cursor.close
+      @read_txn.abort
+      @read_txn = Txn.new(@env, RDONLY)
+      @cursor = Cursor.new(@read_txn, @dbi)
+      @read_txn.reset
+      self
     end
 
     def flags
@@ -222,30 +229,28 @@ module MDB
     end
 
     def to_a
-      dupsort = flags & DUPSORT > 0
       ary = []
-      each do |key, value|
-        if dupsort
+      if flags & DUPSORT > 0
+        each do |key, value|
           each_key(key) {|_, value| ary << value}
-        else
-          ary << value
         end
+      else
+        each {|_, value| ary << value}
       end
       ary
     end
 
     def to_h
-      dupsort = flags & DUPSORT > 0
       hsh = {}
-      each do |key, value|
-        if dupsort
+      if flags & DUPSORT > 0
+        each do |key, value|
           each_key(key) do |key, value|
             hsh[key] ||= []
             hsh[key] << value
           end
-        else
-          hsh[key] = value
         end
+      else
+        each {|key, value| hsh[key] = value}
       end
       hsh
     end

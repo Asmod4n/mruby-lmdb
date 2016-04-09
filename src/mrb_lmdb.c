@@ -115,17 +115,16 @@ static const struct mrb_data_type mdb_env_type = {
 };
 
 static inline void
-mrb_mdb_check_error(mrb_state* mrb, int err, const char* func)
+mrb_mdb_check_error(mrb_state* mrb, const char* func)
 {
-    if (err != MDB_SUCCESS) {
-        if (err >= 0) {
-            errno = err;
+    if (errno != MDB_SUCCESS) {
+        if (errno >= 0) {
             mrb_sys_fail(mrb, func);
         } else {
             mrb_value error2class = mrb_const_get(mrb, mrb_obj_value(E_LMDB_ERROR), mrb_intern_lit(mrb, "Error2Class"));
-            struct RClass* errclass = mrb_class_ptr(mrb_hash_get(mrb, error2class, mrb_fixnum_value(err)));
+            struct RClass* errclass = mrb_class_ptr(mrb_hash_get(mrb, error2class, mrb_fixnum_value(errno)));
             mrb_value func_str = mrb_str_new_static(mrb, func, strlen(func));
-            const char* errstr = mdb_strerror(err);
+            const char* errstr = mdb_strerror(errno);
             mrb_value error_str = mrb_str_new_static(mrb, errstr, strlen(errstr));
             mrb_raisef(mrb, errclass, "%S: %S", func_str, error_str);
         }
@@ -136,11 +135,10 @@ static mrb_value
 mrb_mdb_env_create(mrb_state* mrb, mrb_value self)
 {
     MDB_env* env;
-    errno = 0;
 
-    int err = mdb_env_create(&env);
+    errno = mdb_env_create(&env);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_create");
+    mrb_mdb_check_error(mrb, "mdb_env_create");
 
     mrb_data_init(self, env, &mdb_env_type);
 
@@ -166,11 +164,10 @@ mrb_mdb_env_open(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "mode is out of range");
     }
 
-    errno = 0;
-    int err = mdb_env_open(env, (const char*)path,
+    errno = mdb_env_open(env, (const char*)path,
         (unsigned int)flags, (mdb_mode_t)mode);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_open");
+    mrb_mdb_check_error(mrb, "mdb_env_open");
 
     return self;
 }
@@ -185,10 +182,9 @@ mrb_mdb_env_copy(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "z", &path);
 
-    errno = 0;
-    int err = mdb_env_copy(env, (const char*)path);
+    errno = mdb_env_copy(env, (const char*)path);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_copy");
+    mrb_mdb_check_error(mrb, "mdb_env_copy");
 
     return self;
 }
@@ -208,10 +204,9 @@ mrb_mdb_env_copy2(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
-    errno = 0;
-    int err = mdb_env_copy2(env, (const char*)path, (unsigned int)flags);
+    errno = mdb_env_copy2(env, (const char*)path, (unsigned int)flags);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_copy2");
+    mrb_mdb_check_error(mrb, "mdb_env_copy2");
 
     return self;
 }
@@ -225,10 +220,9 @@ mrb_mdb_env_stat(mrb_state* mrb, mrb_value self)
     MDB_stat stat;
     mrb_value args[6];
 
-    errno = 0;
-    int err = mdb_env_stat(env, &stat);
+    errno = mdb_env_stat(env, &stat);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_stat");
+    mrb_mdb_check_error(mrb, "mdb_env_stat");
 
     args[0] = MRB_INT_MAX < stat.ms_psize ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
     args[1] = MRB_INT_MAX < stat.ms_depth ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
@@ -249,10 +243,9 @@ mrb_mdb_env_info(mrb_state* mrb, mrb_value self)
     MDB_envinfo stat;
     mrb_value args[6];
 
-    errno = 0;
-    int err = mdb_env_info(env, &stat);
+    errno = mdb_env_info(env, &stat);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_info");
+    mrb_mdb_check_error(mrb, "mdb_env_info");
 
     args[0] = stat.me_mapaddr ? mrb_cptr_value(mrb, stat.me_mapaddr) : mrb_nil_value();
     args[1] = MRB_INT_MAX < stat.me_mapsize ? mrb_float_value(mrb, stat.me_mapsize) : mrb_fixnum_value(stat.me_mapsize);
@@ -274,10 +267,9 @@ mrb_mdb_env_sync(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "|b", &force);
 
-    errno = 0;
-    int err = mdb_env_sync(env, (int)force);
+    errno = mdb_env_sync(env, (int)force);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_sync");
+    mrb_mdb_check_error(mrb, "mdb_env_sync");
 
     return self;
 }
@@ -310,10 +302,9 @@ mrb_mdb_env_set_flags(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
-    errno = 0;
-    int err = mdb_env_set_flags(env, (unsigned int)flags, (int)onoff);
+    errno = mdb_env_set_flags(env, (unsigned int)flags, (int)onoff);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_set_flags");
+    mrb_mdb_check_error(mrb, "mdb_env_set_flags");
 
     return self;
 }
@@ -326,10 +317,9 @@ mrb_mdb_env_get_flags(mrb_state* mrb, mrb_value self)
 
     unsigned int flags;
 
-    errno = 0;
-    int err = mdb_env_get_flags(env, &flags);
+    errno = mdb_env_get_flags(env, &flags);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_get_flags");
+    mrb_mdb_check_error(mrb, "mdb_env_get_flags");
 
     if (flags < MRB_INT_MIN || flags > MRB_INT_MAX) {
         return mrb_float_value(mrb, flags);
@@ -346,10 +336,9 @@ mrb_mdb_env_get_path(mrb_state* mrb, mrb_value self)
 
     const char* path;
 
-    errno = 0;
-    int err = mdb_env_get_path(env, &path);
+    errno = mdb_env_get_path(env, &path);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_get_path");
+    mrb_mdb_check_error(mrb, "mdb_env_get_path");
 
     return mrb_str_new_static(mrb, path, strlen(path));
 }
@@ -368,10 +357,9 @@ mrb_mdb_env_set_mapsize(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "size is out of range");
     }
 
-    errno = 0;
-    int err = mdb_env_set_mapsize(env, (size_t)size);
+    errno = mdb_env_set_mapsize(env, (size_t)size);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_set_mapsize");
+    mrb_mdb_check_error(mrb, "mdb_env_set_mapsize");
 
     return self;
 }
@@ -390,10 +378,9 @@ mrb_mdb_env_set_maxreaders(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "readers are out of range");
     }
 
-    errno = 0;
-    int err = mdb_env_set_maxreaders(env, (unsigned int)readers);
+    errno = mdb_env_set_maxreaders(env, (unsigned int)readers);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_set_maxreaders");
+    mrb_mdb_check_error(mrb, "mdb_env_set_maxreaders");
 
     return self;
 }
@@ -406,10 +393,9 @@ mrb_mdb_env_get_maxreaders(mrb_state* mrb, mrb_value self)
 
     unsigned int readers;
 
-    errno = 0;
-    int err = mdb_env_get_maxreaders(env, &readers);
+    errno = mdb_env_get_maxreaders(env, &readers);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_get_maxreaders");
+    mrb_mdb_check_error(mrb, "mdb_env_get_maxreaders");
 
     if (MRB_INT_MAX < readers) {
         return mrb_float_value(mrb, readers);
@@ -432,10 +418,9 @@ mrb_mdb_env_set_maxdbs(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "dbs is out of range");
     }
 
-    errno = 0;
-    int err = mdb_env_set_maxdbs(env, (MDB_dbi)dbs);
+    errno = mdb_env_set_maxdbs(env, (MDB_dbi)dbs);
 
-    mrb_mdb_check_error(mrb, err, "mdb_env_set_maxdbs");
+    mrb_mdb_check_error(mrb, "mdb_env_set_maxdbs");
 
     return self;
 }
@@ -446,7 +431,6 @@ mrb_mdb_env_get_maxkeysize(mrb_state* mrb, mrb_value self)
     MDB_env* env = (MDB_env*)DATA_PTR(self);
     mrb_assert(env);
 
-    errno = 0;
     int maxkeysize = mdb_env_get_maxkeysize(env);
 
     if (MRB_INT_MAX < maxkeysize) {
@@ -464,10 +448,9 @@ mrb_mdb_reader_check(mrb_state* mrb, mrb_value self)
 
     int dead;
 
-    errno = 0;
-    int err = mdb_reader_check(env, &dead);
+    errno = mdb_reader_check(env, &dead);
 
-    mrb_mdb_check_error(mrb, err, "mdb_reader_check");
+    mrb_mdb_check_error(mrb, "mdb_reader_check");
 
     if (MRB_INT_MAX < dead) {
         return mrb_float_value(mrb, dead);
@@ -500,10 +483,9 @@ mrb_mdb_txn_begin(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
-    errno = 0;
-    int err = mdb_txn_begin(env, parent, (unsigned int)flags, &txn);
+    errno = mdb_txn_begin(env, parent, (unsigned int)flags, &txn);
 
-    mrb_mdb_check_error(mrb, err, "mdb_txn_begin");
+    mrb_mdb_check_error(mrb, "mdb_txn_begin");
 
     mrb_data_init(self, txn, &mdb_txn_type);
 
@@ -516,11 +498,10 @@ mrb_mdb_txn_commit(mrb_state* mrb, mrb_value self)
     MDB_txn* txn = (MDB_txn*)DATA_PTR(self);
     mrb_assert(txn);
 
-    errno = 0;
-    int err = mdb_txn_commit(txn);
+    errno = mdb_txn_commit(txn);
     mrb_data_init(self, NULL, NULL);
 
-    mrb_mdb_check_error(mrb, err, "mdb_txn_commit");
+    mrb_mdb_check_error(mrb, "mdb_txn_commit");
 
     return mrb_true_value();
 }
@@ -555,10 +536,9 @@ mrb_mdb_txn_renew(mrb_state* mrb, mrb_value self)
     MDB_txn* txn = (MDB_txn*)DATA_PTR(self);
     mrb_assert(txn);
 
-    errno = 0;
-    int err = mdb_txn_renew(txn);
+    errno = mdb_txn_renew(txn);
 
-    mrb_mdb_check_error(mrb, err, "mdb_txn_renew");
+    mrb_mdb_check_error(mrb, "mdb_txn_renew");
 
     return self;
 }
@@ -577,10 +557,9 @@ mrb_mdb_dbi_open(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
-    errno = 0;
-    int err = mdb_dbi_open(txn, (const char*)name, (unsigned int)flags, &dbi);
+    errno = mdb_dbi_open(txn, (const char*)name, (unsigned int)flags, &dbi);
 
-    mrb_mdb_check_error(mrb, err, "mdb_dbi_open");
+    mrb_mdb_check_error(mrb, "mdb_dbi_open");
 
     if (MRB_INT_MAX < dbi) {
         mdb_dbi_close(mdb_txn_env(txn), dbi);
@@ -602,10 +581,9 @@ mrb_mdb_dbi_flags(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
-    errno = 0;
-    int err = mdb_dbi_flags(txn, (MDB_dbi)dbi, &flags);
+    errno = mdb_dbi_flags(txn, (MDB_dbi)dbi, &flags);
 
-    mrb_mdb_check_error(mrb, err, "mdb_dbi_flags");
+    mrb_mdb_check_error(mrb, "mdb_dbi_flags");
 
     if (flags > MRB_INT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags is out of range");
@@ -627,10 +605,9 @@ mrb_mdb_stat(mrb_state* mrb, mrb_value self)
     if (dbi < 0 || dbi > UINT_MAX)
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
 
-    errno = 0;
-    int err = mdb_stat(txn, (MDB_dbi)dbi, &stat);
+    errno = mdb_stat(txn, (MDB_dbi)dbi, &stat);
 
-    mrb_mdb_check_error(mrb, err, "mdb_stat");
+    mrb_mdb_check_error(mrb, "mdb_stat");
 
     args[0] = MRB_INT_MAX < stat.ms_psize ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
     args[1] = MRB_INT_MAX < stat.ms_depth ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
@@ -655,12 +632,11 @@ mrb_mdb_drop(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
-    errno = 0;
-    int err = mdb_drop(txn, (MDB_dbi)dbi, (int)del);
+    errno = mdb_drop(txn, (MDB_dbi)dbi, (int)del);
 
-    mrb_mdb_check_error(mrb, err, "mdb_drop");
+    mrb_mdb_check_error(mrb, "mdb_drop");
 
-    return mrb_true_value();
+    return self;
 }
 
 static mrb_value
@@ -682,20 +658,19 @@ mrb_mdb_get(mrb_state* mrb, mrb_value self)
     key.mv_size = RSTRING_LEN(key_obj);
     key.mv_data = RSTRING_PTR(key_obj);
 
-    errno = 0;
-    int err = mdb_get(txn, (MDB_dbi)dbi, &key, &data);
+    errno = mdb_get(txn, (MDB_dbi)dbi, &key, &data);
 
-    if (err == MDB_SUCCESS) {
+    if (errno == MDB_SUCCESS) {
         if (static_string) {
             return mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size);
         } else {
             return mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
         }
     }
-    else if (err == MDB_NOTFOUND) {
+    else if (errno == MDB_NOTFOUND) {
         return mrb_nil_value();
     } else {
-        mrb_mdb_check_error(mrb, err, "mdb_get");
+        mrb_mdb_check_error(mrb, "mdb_get");
     }
 
     return self;
@@ -727,10 +702,9 @@ mrb_mdb_put(mrb_state* mrb, mrb_value self)
     data.mv_size = RSTRING_LEN(data_obj);
     data.mv_data = RSTRING_PTR(data_obj);
 
-    errno = 0;
-    int err = mdb_put(txn, (MDB_dbi)dbi, &key, &data, (unsigned int)flags);
+    errno = mdb_put(txn, (MDB_dbi)dbi, &key, &data, (unsigned int)flags);
 
-    mrb_mdb_check_error(mrb, err, "mdb_put");
+    mrb_mdb_check_error(mrb, "mdb_put");
 
     return self;
 }
@@ -762,15 +736,14 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
         data.mv_data = NULL;
     }
 
-    errno = 0;
-    int err = mdb_del(txn, (MDB_dbi)dbi, &key, &data);
-    if (err == MDB_SUCCESS) {
+    errno = mdb_del(txn, (MDB_dbi)dbi, &key, &data);
+    if (errno == MDB_SUCCESS) {
         return mrb_true_value();
     }
-    else if (err == MDB_NOTFOUND) {
+    else if (errno == MDB_NOTFOUND) {
         return mrb_nil_value();
     } else {
-        mrb_mdb_check_error(mrb, err, "mdb_del");
+        mrb_mdb_check_error(mrb, "mdb_del");
     }
 
     return self;
@@ -799,10 +772,9 @@ mrb_mdb_cursor_open(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
-    errno = 0;
-    int err = mdb_cursor_open(txn, (MDB_dbi)dbi, &cursor);
+    errno = mdb_cursor_open(txn, (MDB_dbi)dbi, &cursor);
 
-    mrb_mdb_check_error(mrb, err, "mdb_cursor_open");
+    mrb_mdb_check_error(mrb, "mdb_cursor_open");
 
     mrb_data_init(self, cursor, &mdb_cursor_type);
 
@@ -819,10 +791,9 @@ mrb_mdb_cursor_renew(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "d", &txn, &mdb_txn_type);
 
-    errno = 0;
-    int err = mdb_cursor_renew(txn, cursor);
+    errno = mdb_cursor_renew(txn, cursor);
 
-    mrb_mdb_check_error(mrb, err, "mdb_cursor_renew");
+    mrb_mdb_check_error(mrb, "mdb_cursor_renew");
 
     return self;
 }
@@ -870,10 +841,9 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
         data.mv_data = NULL;
     }
 
-    errno = 0;
-    int err = mdb_cursor_get(cursor, &key, &data, cursor_op);
+    errno = mdb_cursor_get(cursor, &key, &data, cursor_op);
 
-    if (err == MDB_SUCCESS) {
+    if (errno == MDB_SUCCESS) {
         if (static_string) {
             key_obj = mrb_str_new_static(mrb, (const char*)key.mv_data, key.mv_size);
             data_obj = mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size);
@@ -883,10 +853,10 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
         }
         return mrb_assoc_new(mrb, key_obj, data_obj);
     }
-    else if (err == MDB_NOTFOUND) {
+    else if (errno == MDB_NOTFOUND) {
         return mrb_nil_value();
     } else {
-        mrb_mdb_check_error(mrb, err, "mdb_cursor_get");
+        mrb_mdb_check_error(mrb, "mdb_cursor_get");
     }
 
     return self;
@@ -915,10 +885,9 @@ mrb_mdb_cursor_put(mrb_state* mrb, mrb_value self)
     data.mv_size = RSTRING_LEN(data_obj);
     data.mv_data = RSTRING_PTR(data_obj);
 
-    errno = 0;
-    int err = mdb_cursor_put(cursor, &key, &data, (unsigned int)flags);
+    errno = mdb_cursor_put(cursor, &key, &data, (unsigned int)flags);
 
-    mrb_mdb_check_error(mrb, err, "mdb_cursor_put");
+    mrb_mdb_check_error(mrb, "mdb_cursor_put");
 
     return self;
 }
@@ -937,10 +906,9 @@ mrb_mdb_cursor_del(mrb_state* mrb, mrb_value self)
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
-    errno = 0;
-    int err = mdb_cursor_del(cursor, (unsigned int)flags);
+    errno = mdb_cursor_del(cursor, (unsigned int)flags);
 
-    mrb_mdb_check_error(mrb, err, "mdb_cursor_del");
+    mrb_mdb_check_error(mrb, "mdb_cursor_del");
 
     return self;
 }
@@ -953,10 +921,9 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
 
     size_t count;
 
-    errno = 0;
-    int err = mdb_cursor_count(cursor, &count);
+    errno = mdb_cursor_count(cursor, &count);
 
-    mrb_mdb_check_error(mrb, err, "mdb_cursor_count");
+    mrb_mdb_check_error(mrb, "mdb_cursor_count");
 
     if (MRB_INT_MAX < count) {
         return mrb_float_value(mrb, count);
