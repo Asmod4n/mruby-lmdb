@@ -156,11 +156,11 @@ mrb_mdb_env_open(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "z|ii", &path, &flags, &mode);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
-    if (mode < INT_MIN || mode > INT_MAX) {
+    if (mode < INT_MIN||mode > INT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "mode is out of range");
     }
 
@@ -200,7 +200,7 @@ mrb_mdb_env_copy2(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "z|i", &path, &flags);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
@@ -298,7 +298,7 @@ mrb_mdb_env_set_flags(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "|ib", &flags, &onoff);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
@@ -321,7 +321,7 @@ mrb_mdb_env_get_flags(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_env_get_flags");
 
-    if (flags < MRB_INT_MIN || flags > MRB_INT_MAX) {
+    if (flags < MRB_INT_MIN||flags > MRB_INT_MAX) {
         return mrb_float_value(mrb, flags);
     } else {
         return mrb_fixnum_value(flags);
@@ -353,7 +353,7 @@ mrb_mdb_env_set_mapsize(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i", &size);
 
-    if (size < 0 || size > SIZE_MAX) {
+    if (size < 0||size > SIZE_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "size is out of range");
     }
 
@@ -374,7 +374,7 @@ mrb_mdb_env_set_maxreaders(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i", &readers);
 
-    if (readers < 0 || readers > UINT_MAX) {
+    if (readers < 0||readers > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "readers are out of range");
     }
 
@@ -414,7 +414,7 @@ mrb_mdb_env_set_maxdbs(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i", &dbs);
 
-    if (dbs < 0 || dbs > UINT_MAX) {
+    if (dbs < 0||dbs > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbs is out of range");
     }
 
@@ -479,7 +479,7 @@ mrb_mdb_txn_begin(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "d|id!", &env, &mdb_env_type, &flags, &parent, &mdb_txn_type);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
@@ -553,7 +553,7 @@ mrb_mdb_dbi_open(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "d|iz!", &txn, &mdb_txn_type, &flags, &name);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
@@ -577,7 +577,7 @@ mrb_mdb_dbi_flags(mrb_state* mrb, mrb_value self)
     unsigned int flags;
 
     mrb_get_args(mrb, "di", &txn, &mdb_txn_type, &dbi);
-    if (dbi < 0 || dbi > UINT_MAX) {
+    if (dbi < 0||dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
@@ -602,7 +602,7 @@ mrb_mdb_stat(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "di", &txn, &mdb_txn_type, &dbi);
 
-    if (dbi < 0 || dbi > UINT_MAX)
+    if (dbi < 0||dbi > UINT_MAX)
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
 
     errno = mdb_stat(txn, (MDB_dbi)dbi, &stat);
@@ -628,7 +628,7 @@ mrb_mdb_drop(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "di|b", &txn, &mdb_txn_type, &dbi, &del);
 
-    if (dbi < 0 || dbi > UINT_MAX) {
+    if (dbi < 0||dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
@@ -650,7 +650,7 @@ mrb_mdb_get(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "dio|b", &txn, &mdb_txn_type, &dbi, &key_obj, &static_string);
 
-    if (dbi < 0 || dbi > UINT_MAX) {
+    if (dbi < 0||dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
@@ -687,11 +687,11 @@ mrb_mdb_put(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "dioo|i", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj, &flags);
 
-    if (dbi < 0 || dbi > UINT_MAX) {
+    if (dbi < 0||dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
@@ -719,7 +719,7 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "dio|o", &txn, &mdb_txn_type, &dbi, &key_obj, &data_obj);
 
-    if (dbi < 0 || dbi > UINT_MAX) {
+    if (dbi < 0||dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
@@ -768,7 +768,7 @@ mrb_mdb_cursor_open(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "di", &txn, &mdb_txn_type, &dbi);
 
-    if (dbi < 0 || dbi > UINT_MAX) {
+    if (dbi < 0||dbi > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
     }
 
@@ -874,7 +874,7 @@ mrb_mdb_cursor_put(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "oo|i", &key_obj, &data_obj, &flags);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
@@ -902,7 +902,7 @@ mrb_mdb_cursor_del(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "|i", &flags);
 
-    if (flags < 0 || flags > UINT_MAX) {
+    if (flags < 0||flags > UINT_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags are out of range");
     }
 
