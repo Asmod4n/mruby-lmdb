@@ -67,16 +67,14 @@ module MDB
 
     def [](key)
       @read_txn.renew
-      @cursor.renew(@read_txn)
-      @cursor.set_key(key)
+      MDB.get(@read_txn, @dbi, key)
     ensure
       @read_txn.reset
     end
 
     def fetch(key, default = nil)
       @read_txn.renew
-      @cursor.renew(@read_txn)
-      val = @cursor.set_key(key)
+      val = MDB.get(@read_txn, @dbi, key)
       unless val
         return yield(key) if block_given?
         return default if default
