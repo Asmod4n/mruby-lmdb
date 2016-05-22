@@ -5,9 +5,9 @@
   spec.add_dependency 'mruby-errno'
   spec.add_dependency 'mruby-struct'
 
-  if build.toolchains.include?('android')
+  if spec.build.toolchains.include?('android')
     spec.cc.defines << 'HAVE_PTHREADS'
   else
-    spec.linker.libraries << 'pthread'
+    spec.linker.libraries << 'pthread' unless spec.build.toolchains.include?('visualcpp')
   end
 end

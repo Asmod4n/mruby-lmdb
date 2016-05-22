@@ -62,7 +62,7 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
     mrb_int number;
 
     if (bigendian_p()) {
-#if defined(MRB_INT64)
+#ifdef MRB_INT64
     number =    (((mrb_int) (p[0])) << 56)
               + (((mrb_int) (p[1])) << 48)
               + (((mrb_int) (p[2])) << 40)
@@ -81,7 +81,7 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
               + (((mrb_int) (p[3])));
 #endif
     } else {
-#if defined(MRB_INT64)
+#ifdef MRB_INT64
         number = (((mrb_int)(p[0])))
             + (((mrb_int)(p[1])) << 8)
             + (((mrb_int)(p[2])) << 16)
@@ -114,7 +114,7 @@ static const struct mrb_data_type mdb_env_type = {
     "$mrb_i_mdb_env", mrb_mdb_env_free,
 };
 
-static inline void
+MRB_INLINE void
 mrb_mdb_check_error(mrb_state* mrb, const char* func)
 {
     if (errno != MDB_SUCCESS) {
@@ -585,7 +585,7 @@ mrb_mdb_dbi_flags(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_dbi_flags");
 
-    if (flags > MRB_INT_MAX) {
+    if (MRB_INT_MAX < flags) {
         mrb_raise(mrb, E_RANGE_ERROR, "flags is out of range");
     }
 
@@ -932,7 +932,8 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
     }
 }
 
-void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
+void
+mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 {
     struct RClass *mdb_mod, *mdb_error, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
 
@@ -1056,7 +1057,4 @@ void mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 #include "known_cursor_ops_def.cstub"
 }
 
-void mrb_mruby_lmdb_gem_final(mrb_state* mrb)
-{
-    /* finalizer */
-}
+void mrb_mruby_lmdb_gem_final(mrb_state* mrb) {}

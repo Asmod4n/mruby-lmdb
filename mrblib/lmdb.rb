@@ -198,7 +198,7 @@ module MDB
     alias :size :length
 
     def empty?
-      length == 0
+      stat[:entries] == 0
     end
 
     def transaction(*args)
@@ -228,19 +228,19 @@ module MDB
 
     def to_a
       ary = []
-      if flags & DUPSORT > 0
+      if flags & DUPSORT != 0
         each do |key, value|
-          each_key(key) {|_, value| ary << value}
+          each_key(key) {|_key, _value| ary << [_key, _value]}
         end
       else
-        each {|_, value| ary << value}
+        each {|key, value| ary << [key, value]}
       end
       ary
     end
 
     def to_h
       hsh = {}
-      if flags & DUPSORT > 0
+      if flags & DUPSORT != 0
         each do |key, value|
           each_key(key) do |key, value|
             hsh[key] ||= []
