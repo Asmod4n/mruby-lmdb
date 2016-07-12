@@ -1,6 +1,8 @@
 #include "mruby/lmdb.h"
 #include "mrb_lmdb.h"
 
+static int mrb_lmdb_is_bigendian = 0;
+
 static mrb_value
 mrb_fix2bin(mrb_state* mrb, mrb_value self)
 {
@@ -8,8 +10,8 @@ mrb_fix2bin(mrb_state* mrb, mrb_value self)
     mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
     unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
 
-    if (bigendian_p()) {
-#if defined(MRB_INT64)
+    if (mrb_lmdb_is_bigendian) {
+#ifdef MRB_INT64
         p[0] = (unsigned char)(number >> 56) & 0xFF;
         p[1] = (unsigned char)(number >> 48) & 0xFF;
         p[2] = (unsigned char)(number >> 40) & 0xFF;
@@ -28,7 +30,7 @@ mrb_fix2bin(mrb_state* mrb, mrb_value self)
         p[3] = (unsigned char)number & 0xFF;
 #endif
     } else {
-#if defined(MRB_INT64)
+#ifdef MRB_INT64
         p[0] = (unsigned char)number & 0xFF;
         p[1] = (unsigned char)(number >> 8) & 0xFF;
         p[2] = (unsigned char)(number >> 16) & 0xFF;
@@ -61,7 +63,7 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
     unsigned char* p = (unsigned char*)RSTRING_PTR(self);
     mrb_int number;
 
-    if (bigendian_p()) {
+    if (mrb_lmdb_is_bigendian) {
 #ifdef MRB_INT64
     number =    (((mrb_int) (p[0])) << 56)
               + (((mrb_int) (p[1])) << 48)
@@ -103,16 +105,6 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
 
     return mrb_fixnum_value(number);
 }
-
-static void
-mrb_mdb_env_free(mrb_state* mrb, void* p)
-{
-    mdb_env_close((MDB_env*)p);
-}
-
-static const struct mrb_data_type mdb_env_type = {
-    "$mrb_i_mdb_env", mrb_mdb_env_free,
-};
 
 MRB_INLINE void
 mrb_mdb_check_error(mrb_state* mrb, const char* func)
@@ -349,9 +341,9 @@ mrb_mdb_env_set_mapsize(mrb_state* mrb, mrb_value self)
     MDB_env* env = (MDB_env*)DATA_PTR(self);
     mrb_assert(env);
 
-    mrb_int size;
+    mrb_float size;
 
-    mrb_get_args(mrb, "i", &size);
+    mrb_get_args(mrb, "f", &size);
 
     if (size < 0||size > SIZE_MAX) {
         mrb_raise(mrb, E_RANGE_ERROR, "size is out of range");
@@ -458,16 +450,6 @@ mrb_mdb_reader_check(mrb_state* mrb, mrb_value self)
         return mrb_fixnum_value(dead);
     }
 }
-
-static void
-mrb_mdb_txn_free(mrb_state* mrb, void* p)
-{
-    mdb_txn_abort((MDB_txn*)p);
-}
-
-static const struct mrb_data_type mdb_txn_type = {
-    "$mrb_i_mdb_txn", mrb_mdb_txn_free,
-};
 
 static mrb_value
 mrb_mdb_txn_begin(mrb_state* mrb, mrb_value self)
@@ -749,16 +731,6 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
     return self;
 }
 
-static void
-mrb_mdb_cursor_free(mrb_state* mrb, void* p)
-{
-    mdb_cursor_close((MDB_cursor*)p);
-}
-
-static const struct mrb_data_type mdb_cursor_type = {
-    "$mrb_i_mdb_cursor", mrb_mdb_cursor_free,
-};
-
 static mrb_value
 mrb_mdb_cursor_open(mrb_state* mrb, mrb_value self)
 {
@@ -935,6 +907,7 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
 void
 mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 {
+    mrb_lmdb_is_bigendian = bigendian_p();
     struct RClass *mdb_mod, *mdb_error, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
 
     mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix, MRB_ARGS_NONE());
