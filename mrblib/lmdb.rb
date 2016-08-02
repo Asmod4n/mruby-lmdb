@@ -44,37 +44,32 @@ module MDB
     def initialize(env, *args)
       @env = env
       @dbi = @env.transaction {|txn| Dbi.open(txn, *args)}
-      @read_txn = Txn.new(@env, RDONLY)
-      @cursor = Cursor.new(@read_txn, @dbi)
-      @read_txn.reset
     end
 
-    def renew_read_txn
-      @cursor.close
-      @read_txn.abort
-      @read_txn = Txn.new(@env, RDONLY)
-      @cursor = Cursor.new(@read_txn, @dbi)
-      @read_txn.reset
+    def drop(delete = false)
+      @env.transaction do |txn|
+        MDB.drop(txn, @dbi, delete)
+      end
       self
     end
 
     def flags
-      @read_txn.renew
-      Dbi.flags(@read_txn, @dbi)
+      read_txn = Txn.new(@env, RDONLY)
+      Dbi.flags(read_txn, @dbi)
     ensure
-      @read_txn.reset
+      read_txn.abort if read_txn
     end
 
     def [](key)
-      @read_txn.renew
-      MDB.get(@read_txn, @dbi, key)
+      read_txn = Txn.new(@env, RDONLY)
+      MDB.get(read_txn, @dbi, key)
     ensure
-      @read_txn.reset
+      read_txn.abort if read_txn
     end
 
     def fetch(key, default = nil)
-      @read_txn.renew
-      val = MDB.get(@read_txn, @dbi, key)
+      read_txn = Txn.new(@env, RDONLY)
+      val = MDB.get(read_txn, @dbi, key)
       unless val
         return yield(key) if block_given?
         return default if default
@@ -82,7 +77,7 @@ module MDB
       end
       val
     ensure
-      @read_txn.reset
+      read_txn.abort if read_txn
     end
 
     def []=(key, data)
@@ -96,54 +91,59 @@ module MDB
       @env.transaction do |txn|
         MDB.del(txn, @dbi, *args)
       end
+      self
     end
 
     def each_key(key)
       raise ArgumentError, "no block given" unless block_given?
-      @read_txn.renew
-      @cursor.renew(@read_txn)
-      record = @cursor.set_key(key)
+      read_txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(read_txn, @dbi)
+      record = cursor.set_key(key)
       if record
         yield record
-        while record = @cursor.next_dup
+        while record = cursor.next_dup
           yield record
         end
       end
       self
     ensure
-      @read_txn.reset
+      cursor.close if cursor
+      read_txn.abort if read_txn
     end
 
     def each
       raise ArgumentError, "no block given" unless block_given?
-      @read_txn.renew
-      @cursor.renew(@read_txn)
-      record = @cursor.first
+      read_txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(read_txn, @dbi)
+      record = cursor.first
       if record
         yield record
-        while record = @cursor.next
+        while record = cursor.next
           yield record
         end
       end
       self
     ensure
-      @read_txn.reset
+      cursor.close if cursor
+      read_txn.abort if read_txn
     end
 
     def first
-      @read_txn.renew
-      @cursor.renew(@read_txn)
-      @cursor.first
+      read_txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(read_txn, @dbi)
+      cursor.first
     ensure
-      @read_txn.reset
+      cursor.close if cursor
+      read_txn.abort if read_txn
     end
 
     def last
-      @read_txn.renew
-      @cursor.renew(@read_txn)
-      @cursor.last
+      read_txn = Txn.new(@env, RDONLY)
+      cursor = Cursor.new(read_txn, @dbi)
+      cursor.last
     ensure
-      @read_txn.reset
+      cursor.close if cursor
+      read_txn.abort if read_txn
     end
 
     def <<(value)
@@ -185,10 +185,10 @@ module MDB
     end
 
     def stat
-      @read_txn.renew
-      MDB.stat(@read_txn, @dbi)
+      read_txn = Txn.new(@env, RDONLY)
+      MDB.stat(read_txn, @dbi)
     ensure
-      @read_txn.reset
+      read_txn.abort if read_txn
     end
 
     def length
