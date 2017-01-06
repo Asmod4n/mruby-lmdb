@@ -1,60 +1,64 @@
 #include "mruby/lmdb.h"
 #include "mrb_lmdb.h"
 
-static int mrb_lmdb_is_bigendian = 0;
-
 static mrb_value
-mrb_fix2bin(mrb_state* mrb, mrb_value self)
+mrb_fix2bin_le(mrb_state* mrb, mrb_value self)
 {
     mrb_int number = mrb_fixnum(self);
     mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
     unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
 
-    if (mrb_lmdb_is_bigendian) {
 #ifdef MRB_INT64
-        p[0] = (unsigned char)(number >> 56) & 0xFF;
-        p[1] = (unsigned char)(number >> 48) & 0xFF;
-        p[2] = (unsigned char)(number >> 40) & 0xFF;
-        p[3] = (unsigned char)(number >> 32) & 0xFF;
-        p[4] = (unsigned char)(number >> 24) & 0xFF;
-        p[5] = (unsigned char)(number >> 16) & 0xFF;
-        p[6] = (unsigned char)(number >> 8) & 0xFF;
-        p[7] = (unsigned char)number & 0xFF;
+    p[0] = (unsigned char)number & 0xFF;
+    p[1] = (unsigned char)(number >> 8) & 0xFF;
+    p[2] = (unsigned char)(number >> 16) & 0xFF;
+    p[3] = (unsigned char)(number >> 24) & 0xFF;
+    p[4] = (unsigned char)(number >> 32) & 0xFF;
+    p[5] = (unsigned char)(number >> 40) & 0xFF;
+    p[6] = (unsigned char)(number >> 48) & 0xFF;
+    p[7] = (unsigned char)(number >> 56) & 0xFF;
 #elif defined(MRB_INT16)
-        p[0] = (unsigned char)(number >> 8) & 0xFF;
-        p[1] = (unsigned char)number & 0xFF;
+    p[0] = (unsigned char)number & 0xFF;
+    p[1] = (unsigned char)(number >> 8) & 0xFF;
 #else
-        p[0] = (unsigned char)(number >> 24) & 0xFF;
-        p[1] = (unsigned char)(number >> 16) & 0xFF;
-        p[2] = (unsigned char)(number >> 8) & 0xFF;
-        p[3] = (unsigned char)number & 0xFF;
+    p[0] = (unsigned char)number & 0xFF;
+    p[1] = (unsigned char)(number >> 8) & 0xFF;
+    p[2] = (unsigned char)(number >> 16) & 0xFF;
+    p[3] = (unsigned char)(number >> 24) & 0xFF;
 #endif
-    } else {
-#ifdef MRB_INT64
-        p[0] = (unsigned char)number & 0xFF;
-        p[1] = (unsigned char)(number >> 8) & 0xFF;
-        p[2] = (unsigned char)(number >> 16) & 0xFF;
-        p[3] = (unsigned char)(number >> 24) & 0xFF;
-        p[4] = (unsigned char)(number >> 32) & 0xFF;
-        p[5] = (unsigned char)(number >> 40) & 0xFF;
-        p[6] = (unsigned char)(number >> 48) & 0xFF;
-        p[7] = (unsigned char)(number >> 56) & 0xFF;
-#elif defined(MRB_INT16)
-        p[0] = (unsigned char)number & 0xFF;
-        p[1] = (unsigned char)(number >> 8) & 0xFF;
-#else
-        p[0] = (unsigned char)number & 0xFF;
-        p[1] = (unsigned char)(number >> 8) & 0xFF;
-        p[2] = (unsigned char)(number >> 16) & 0xFF;
-        p[3] = (unsigned char)(number >> 24) & 0xFF;
-#endif
-    }
-
     return pp;
 }
 
 static mrb_value
-mrb_bin2fix(mrb_state* mrb, mrb_value self)
+mrb_fix2bin_be(mrb_state* mrb, mrb_value self)
+{
+    mrb_int number = mrb_fixnum(self);
+    mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
+    unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
+
+#ifdef MRB_INT64
+    p[0] = (unsigned char)(number >> 56) & 0xFF;
+    p[1] = (unsigned char)(number >> 48) & 0xFF;
+    p[2] = (unsigned char)(number >> 40) & 0xFF;
+    p[3] = (unsigned char)(number >> 32) & 0xFF;
+    p[4] = (unsigned char)(number >> 24) & 0xFF;
+    p[5] = (unsigned char)(number >> 16) & 0xFF;
+    p[6] = (unsigned char)(number >> 8) & 0xFF;
+    p[7] = (unsigned char)number & 0xFF;
+#elif defined(MRB_INT16)
+    p[0] = (unsigned char)(number >> 8) & 0xFF;
+    p[1] = (unsigned char)number & 0xFF;
+#else
+    p[0] = (unsigned char)(number >> 24) & 0xFF;
+    p[1] = (unsigned char)(number >> 16) & 0xFF;
+    p[2] = (unsigned char)(number >> 8) & 0xFF;
+    p[3] = (unsigned char)number & 0xFF;
+#endif
+    return pp;
+}
+
+static mrb_value
+mrb_bin2fix_be(mrb_state* mrb, mrb_value self)
 {
     if (RSTRING_LEN(self) != sizeof(mrb_int)) {
         mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
@@ -63,7 +67,6 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
     unsigned char* p = (unsigned char*)RSTRING_PTR(self);
     mrb_int number;
 
-    if (mrb_lmdb_is_bigendian) {
 #ifdef MRB_INT64
     number =    (((mrb_int) (p[0])) << 56)
               + (((mrb_int) (p[1])) << 48)
@@ -82,7 +85,20 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
               + (((mrb_int) (p[2])) << 8)
               + (((mrb_int) (p[3])));
 #endif
-    } else {
+
+    return mrb_fixnum_value(number);
+}
+
+static mrb_value
+mrb_bin2fix_le(mrb_state* mrb, mrb_value self)
+{
+    if (RSTRING_LEN(self) != sizeof(mrb_int)) {
+        mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
+    }
+
+    unsigned char* p = (unsigned char*)RSTRING_PTR(self);
+    mrb_int number;
+
 #ifdef MRB_INT64
         number = (((mrb_int)(p[0])))
             + (((mrb_int)(p[1])) << 8)
@@ -101,7 +117,6 @@ mrb_bin2fix(mrb_state* mrb, mrb_value self)
             + (((mrb_int)(p[2])) << 16)
             + (((mrb_int)(p[3])) << 24);
 #endif
-    }
 
     return mrb_fixnum_value(number);
 }
@@ -907,11 +922,16 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
 void
 mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 {
-    mrb_lmdb_is_bigendian = bigendian_p();
+
     struct RClass *mdb_mod, *mdb_error, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
 
-    mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix, MRB_ARGS_NONE());
-    mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin, MRB_ARGS_NONE());
+    if (bigendian_p()) {
+        mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix_be, MRB_ARGS_NONE());
+        mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin_be, MRB_ARGS_NONE());
+    } else {
+        mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix_le, MRB_ARGS_NONE());
+        mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin_le, MRB_ARGS_NONE());
+    }
 
     mdb_mod = mrb_define_module(mrb, "MDB");
     mrb_define_const(mrb, mdb_mod, "VERSION", mrb_str_new_static(mrb, MDB_VERSION_STRING, strlen(MDB_VERSION_STRING)));
@@ -941,7 +961,9 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_const(mrb, mdb_mod, "APPENDDUP", mrb_fixnum_value(MDB_APPENDDUP));
     mrb_define_const(mrb, mdb_mod, "MULTIPLE", mrb_fixnum_value(MDB_MULTIPLE));
     mrb_define_const(mrb, mdb_mod, "CP_COMPACT", mrb_fixnum_value(MDB_CP_COMPACT));
+
     mdb_error = mrb_define_class_under(mrb, mdb_mod, "Error", E_RUNTIME_ERROR);
+
     mdb_env_class = mrb_define_class_under(mrb, mdb_mod, "Env", mrb->object_class);
     MRB_SET_INSTANCE_TT(mdb_env_class, MRB_TT_DATA);
     mrb_define_method(mrb, mdb_env_class, "initialize", mrb_mdb_env_create, MRB_ARGS_NONE());
@@ -961,6 +983,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_env_class, "maxdbs=", mrb_mdb_env_set_maxdbs, MRB_ARGS_REQ(1));
     mrb_define_method(mrb, mdb_env_class, "maxkeysize", mrb_mdb_env_get_maxkeysize, MRB_ARGS_NONE());
     mrb_define_method(mrb, mdb_env_class, "reader_check", mrb_mdb_reader_check, MRB_ARGS_NONE());
+
     mdb_txn_class = mrb_define_class_under(mrb, mdb_mod, "Txn", mrb->object_class);
     MRB_SET_INSTANCE_TT(mdb_txn_class, MRB_TT_DATA);
     mrb_define_method(mrb, mdb_txn_class, "initialize", mrb_mdb_txn_begin, MRB_ARGS_ARG(1, 2));
@@ -968,6 +991,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_txn_class, "abort", mrb_mdb_txn_abort, MRB_ARGS_NONE());
     mrb_define_method(mrb, mdb_txn_class, "reset", mrb_mdb_txn_reset, MRB_ARGS_NONE());
     mrb_define_method(mrb, mdb_txn_class, "renew", mrb_mdb_txn_renew, MRB_ARGS_NONE());
+
     mdb_dbi_mod = mrb_define_module_under(mrb, mdb_mod, "Dbi");
     mrb_define_module_function(mrb, mdb_dbi_mod, "open", mrb_mdb_dbi_open, MRB_ARGS_ARG(1, 2));
     mrb_define_module_function(mrb, mdb_dbi_mod, "flags", mrb_mdb_dbi_flags, MRB_ARGS_REQ(2));
@@ -976,6 +1000,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_module_function(mrb, mdb_mod, "put", mrb_mdb_put, MRB_ARGS_ARG(4, 1));
     mrb_define_module_function(mrb, mdb_mod, "del", mrb_mdb_del, MRB_ARGS_ARG(3, 1));
     mrb_define_module_function(mrb, mdb_mod, "drop", mrb_mdb_drop, MRB_ARGS_ARG(2, 1));
+
     mdb_cursor_class = mrb_define_class_under(mrb, mdb_mod, "Cursor", mrb->object_class);
     MRB_SET_INSTANCE_TT(mdb_cursor_class, MRB_TT_DATA);
     mrb_define_const(mrb, mdb_cursor_class, "FIRST", mrb_fixnum_value(MDB_FIRST));
@@ -1004,6 +1029,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_method(mrb, mdb_cursor_class, "put", mrb_mdb_cursor_put, MRB_ARGS_ARG(2, 1));
     mrb_define_method(mrb, mdb_cursor_class, "del", mrb_mdb_cursor_del, MRB_ARGS_OPT(1));
     mrb_define_method(mrb, mdb_cursor_class, "count", mrb_mdb_cursor_count, MRB_ARGS_NONE());
+
     mrb_value error2class = mrb_hash_new(mrb);
     mrb_define_const(mrb, mdb_error, "Error2Class", error2class);
 
