@@ -14,7 +14,7 @@ module MDB
         when :maxdbs
           instance.maxdbs = v
         else
-          raise ArgumentError, "unknown option #{k}"
+          raise ArgumentError, "unknown option #{k.dump}"
         end
       end
       instance

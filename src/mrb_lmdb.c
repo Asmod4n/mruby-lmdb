@@ -121,7 +121,7 @@ mrb_bin2fix_le(mrb_state* mrb, mrb_value self)
     return mrb_fixnum_value(number);
 }
 
-MRB_INLINE void
+static void
 mrb_mdb_check_error(mrb_state* mrb, const char* func)
 {
     if (errno != MDB_SUCCESS) {
@@ -724,7 +724,7 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
     key.mv_size = RSTRING_LEN(key_obj);
     key.mv_data = RSTRING_PTR(key_obj);
 
-    if (!mrb_nil_p(data_obj)) {
+    if (mrb_test(data_obj)) {
         data_obj = mrb_str_to_str(mrb, data_obj);
         data.mv_size = RSTRING_LEN(data_obj);
         data.mv_data = RSTRING_PTR(data_obj);
@@ -811,7 +811,7 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
 
     mrb_get_args(mrb, "i|oob", &cursor_op, &key_obj, &data_obj, &static_string);
 
-    if (!mrb_nil_p(key_obj)) {
+    if (mrb_test(key_obj)) {
         key_obj = mrb_str_to_str(mrb, key_obj);
         key.mv_size = RSTRING_LEN(key_obj);
         key.mv_data = RSTRING_PTR(key_obj);
@@ -819,7 +819,7 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
         key.mv_size = 0;
         key.mv_data = NULL;
     }
-    if (!mrb_nil_p(data_obj)) {
+    if (mrb_test(data_obj)) {
         data_obj = mrb_str_to_str(mrb, data_obj);
         data.mv_size = RSTRING_LEN(data_obj);
         data.mv_data = RSTRING_PTR(data_obj);
