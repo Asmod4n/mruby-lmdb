@@ -1021,7 +1021,9 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     mrb_define_const(mrb, mdb_cursor_class, "SET", mrb_fixnum_value(MDB_SET));
     mrb_define_const(mrb, mdb_cursor_class, "SET_KEY", mrb_fixnum_value(MDB_SET_KEY));
     mrb_define_const(mrb, mdb_cursor_class, "SET_RANGE", mrb_fixnum_value(MDB_SET_RANGE));
+#ifdef MDB_PREV_MULTIPLE
     mrb_define_const(mrb, mdb_cursor_class, "PREV_MULTIPLE", mrb_fixnum_value(MDB_PREV_MULTIPLE));
+#endif
     mrb_define_method(mrb, mdb_cursor_class, "initialize", mrb_mdb_cursor_open, MRB_ARGS_REQ(2));
     mrb_define_method(mrb, mdb_cursor_class, "renew", mrb_mdb_cursor_renew, MRB_ARGS_REQ(1));
     mrb_define_method(mrb, mdb_cursor_class, "close", mrb_mdb_cursor_close, MRB_ARGS_NONE());
