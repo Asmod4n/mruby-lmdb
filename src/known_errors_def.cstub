@@ -1,20 +1,60 @@
+#ifdef MDB_KEYEXIST
 mrb_lmdb_define_error(MDB_KEYEXIST, "KEYEXIST");
+#endif
+#ifdef MDB_NOTFOUND
 mrb_lmdb_define_error(MDB_NOTFOUND, "NOTFOUND");
+#endif
+#ifdef MDB_PAGE_NOTFOUND
 mrb_lmdb_define_error(MDB_PAGE_NOTFOUND, "PAGE_NOTFOUND");
+#endif
+#ifdef MDB_CORRUPTED
 mrb_lmdb_define_error(MDB_CORRUPTED, "CORRUPTED");
+#endif
+#ifdef MDB_PANIC
 mrb_lmdb_define_error(MDB_PANIC, "PANIC");
+#endif
+#ifdef MDB_VERSION_MISMATCH
 mrb_lmdb_define_error(MDB_VERSION_MISMATCH, "VERSION_MISMATCH");
+#endif
+#ifdef MDB_INVALID
 mrb_lmdb_define_error(MDB_INVALID, "INVALID");
+#endif
+#ifdef MDB_MAP_FULL
 mrb_lmdb_define_error(MDB_MAP_FULL, "MAP_FULL");
+#endif
+#ifdef MDB_DBS_FULL
 mrb_lmdb_define_error(MDB_DBS_FULL, "DBS_FULL");
+#endif
+#ifdef MDB_READERS_FULL
 mrb_lmdb_define_error(MDB_READERS_FULL, "READERS_FULL");
+#endif
+#ifdef MDB_TLS_FULL
 mrb_lmdb_define_error(MDB_TLS_FULL, "TLS_FULL");
+#endif
+#ifdef MDB_TXN_FULL
 mrb_lmdb_define_error(MDB_TXN_FULL, "TXN_FULL");
+#endif
+#ifdef MDB_CURSOR_FULL
 mrb_lmdb_define_error(MDB_CURSOR_FULL, "CURSOR_FULL");
+#endif
+#ifdef MDB_PAGE_FULL
 mrb_lmdb_define_error(MDB_PAGE_FULL, "PAGE_FULL");
+#endif
+#ifdef MDB_MAP_RESIZED
 mrb_lmdb_define_error(MDB_MAP_RESIZED, "MAP_RESIZED");
+#endif
+#ifdef MDB_INCOMPATIBLE
 mrb_lmdb_define_error(MDB_INCOMPATIBLE, "INCOMPATIBLE");
+#endif
+#ifdef MDB_BAD_RSLOT
 mrb_lmdb_define_error(MDB_BAD_RSLOT, "BAD_RSLOT");
+#endif
+#ifdef MDB_BAD_TXN
 mrb_lmdb_define_error(MDB_BAD_TXN, "BAD_TXN");
+#endif
+#ifdef MDB_BAD_VALSIZE
 mrb_lmdb_define_error(MDB_BAD_VALSIZE, "BAD_VALSIZE");
+#endif
+#ifdef MDB_BAD_DBI
 mrb_lmdb_define_error(MDB_BAD_DBI, "BAD_DBI");
+#endif

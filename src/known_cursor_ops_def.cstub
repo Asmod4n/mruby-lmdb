@@ -1,19 +1,57 @@
+#ifdef MDB_FIRST
 mrb_lmdb_define_cursor_op(MDB_FIRST, "first");
+#endif
+#ifdef MDB_FIRST_DUP
 mrb_lmdb_define_cursor_op(MDB_FIRST_DUP, "first_dup");
+#endif
+#ifdef MDB_GET_BOTH
 mrb_lmdb_define_cursor_op(MDB_GET_BOTH, "get_both");
+#endif
+#ifdef MDB_GET_BOTH_RANGE
 mrb_lmdb_define_cursor_op(MDB_GET_BOTH_RANGE, "get_both_range");
+#endif
+#ifdef MDB_GET_CURRENT
 mrb_lmdb_define_cursor_op(MDB_GET_CURRENT, "get_current");
+#endif
+#ifdef MDB_GET_MULTIPLE
 mrb_lmdb_define_cursor_op(MDB_GET_MULTIPLE, "get_multiple");
+#endif
+#ifdef MDB_LAST
 mrb_lmdb_define_cursor_op(MDB_LAST, "last");
+#endif
+#ifdef MDB_LAST_DUP
 mrb_lmdb_define_cursor_op(MDB_LAST_DUP, "last_dup");
+#endif
+#ifdef MDB_NEXT
 mrb_lmdb_define_cursor_op(MDB_NEXT, "next");
+#endif
+#ifdef MDB_NEXT_DUP
 mrb_lmdb_define_cursor_op(MDB_NEXT_DUP, "next_dup");
+#endif
+#ifdef MDB_NEXT_MULTIPLE
 mrb_lmdb_define_cursor_op(MDB_NEXT_MULTIPLE, "next_multiple");
+#endif
+#ifdef MDB_NEXT_NODUP
 mrb_lmdb_define_cursor_op(MDB_NEXT_NODUP, "next_nodup");
+#endif
+#ifdef MDB_PREV
 mrb_lmdb_define_cursor_op(MDB_PREV, "prev");
+#endif
+#ifdef MDB_PREV_DUP
 mrb_lmdb_define_cursor_op(MDB_PREV_DUP, "prev_dup");
+#endif
+#ifdef MDB_PREV_NODUP
 mrb_lmdb_define_cursor_op(MDB_PREV_NODUP, "prev_nodup");
+#endif
+#ifdef MDB_SET
 mrb_lmdb_define_cursor_op(MDB_SET, "set");
+#endif
+#ifdef MDB_SET_KEY
 mrb_lmdb_define_cursor_op(MDB_SET_KEY, "set_key");
+#endif
+#ifdef MDB_SET_RANGE
 mrb_lmdb_define_cursor_op(MDB_SET_RANGE, "set_range");
+#endif
+#ifdef MDB_PREV_MULTIPLE
 mrb_lmdb_define_cursor_op(MDB_PREV_MULTIPLE, "prev_multiple");
+#endif

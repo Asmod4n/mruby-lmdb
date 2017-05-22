@@ -9,6 +9,8 @@ IO.readlines("known_errors.def").each { |name|
   name.strip!
 
   d.write <<-C
+#ifdef MDB_#{name}
 mrb_lmdb_define_error(MDB_#{name}, "#{name}");
+#endif
 C
 }

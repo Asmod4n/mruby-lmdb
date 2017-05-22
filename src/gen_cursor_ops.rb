@@ -9,6 +9,8 @@ IO.readlines("known_cursor_ops.def").each { |name|
   name.strip!
 
   d.write <<-C
+#ifdef MDB_#{name}
 mrb_lmdb_define_cursor_op(MDB_#{name}, "#{name.downcase}");
+#endif
 C
 }
