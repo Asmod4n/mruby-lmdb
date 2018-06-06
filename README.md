@@ -34,7 +34,7 @@ puts env.stat
 
 License
 =======
-Copyright 2015 Hendrik Beskow
+Copyright 2015
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this software except in compliance with the License.
