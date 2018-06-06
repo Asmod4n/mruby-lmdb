@@ -1,6 +1,6 @@
 ﻿MRuby::Gem::Specification.new('mruby-lmdb') do |spec|
   spec.license = 'Apache-2'
-  spec.author  = 'Hendrik Beskow'
+  spec.author  = 'Hendrik'
   spec.summary = 'mruby bindings for lmdb'
   spec.add_dependency 'mruby-errno'
   spec.add_dependency 'mruby-struct'
