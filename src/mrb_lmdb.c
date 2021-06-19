@@ -4,7 +4,7 @@
 static mrb_value
 mrb_fix2bin_le(mrb_state* mrb, mrb_value self)
 {
-    mrb_int number = mrb_fixnum(self);
+    mrb_int number = mrb_integer(self);
     mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
     unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
 
@@ -32,7 +32,7 @@ mrb_fix2bin_le(mrb_state* mrb, mrb_value self)
 static mrb_value
 mrb_fix2bin_be(mrb_state* mrb, mrb_value self)
 {
-    mrb_int number = mrb_fixnum(self);
+    mrb_int number = mrb_integer(self);
     mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
     unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
 
@@ -61,7 +61,7 @@ static mrb_value
 mrb_bin2fix_be(mrb_state* mrb, mrb_value self)
 {
     if (RSTRING_LEN(self) != sizeof(mrb_int)) {
-        mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
+        mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Integer.to_bin");
     }
 
     unsigned char* p = (unsigned char*)RSTRING_PTR(self);
@@ -86,14 +86,14 @@ mrb_bin2fix_be(mrb_state* mrb, mrb_value self)
               + (((mrb_int) (p[3])));
 #endif
 
-    return mrb_fixnum_value(number);
+    return mrb_int_value(mrb, number);
 }
 
 static mrb_value
 mrb_bin2fix_le(mrb_state* mrb, mrb_value self)
 {
     if (RSTRING_LEN(self) != sizeof(mrb_int)) {
-        mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Fixnum.to_bin");
+        mrb_raise(mrb, E_TYPE_ERROR, "String is not encoded with Integer.to_bin");
     }
 
     unsigned char* p = (unsigned char*)RSTRING_PTR(self);
@@ -118,7 +118,7 @@ mrb_bin2fix_le(mrb_state* mrb, mrb_value self)
             + (((mrb_int)(p[3])) << 24);
 #endif
 
-    return mrb_fixnum_value(number);
+    return mrb_int_value(mrb, number);
 }
 
 static void
@@ -129,7 +129,7 @@ mrb_mdb_check_error(mrb_state* mrb, const char* func)
             mrb_sys_fail(mrb, func);
         } else {
             mrb_value error2class = mrb_const_get(mrb, mrb_obj_value(E_LMDB_ERROR), mrb_intern_lit(mrb, "Error2Class"));
-            struct RClass* errclass = mrb_class_ptr(mrb_hash_get(mrb, error2class, mrb_fixnum_value(errno)));
+            struct RClass* errclass = mrb_class_ptr(mrb_hash_get(mrb, error2class, mrb_int_value(mrb, errno)));
             mrb_value func_str = mrb_str_new_static(mrb, func, strlen(func));
             const char* errstr = mdb_strerror(errno);
             mrb_value error_str = mrb_str_new_static(mrb, errstr, strlen(errstr));
@@ -231,12 +231,12 @@ mrb_mdb_env_stat(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_env_stat");
 
-    args[0] = MRB_INT_MAX < stat.ms_psize ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
-    args[1] = MRB_INT_MAX < stat.ms_depth ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
-    args[2] = MRB_INT_MAX < stat.ms_branch_pages ? mrb_float_value(mrb, stat.ms_branch_pages) : mrb_fixnum_value(stat.ms_branch_pages);
-    args[3] = MRB_INT_MAX < stat.ms_leaf_pages ? mrb_float_value(mrb, stat.ms_leaf_pages) : mrb_fixnum_value(stat.ms_leaf_pages);
-    args[4] = MRB_INT_MAX < stat.ms_overflow_pages ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
-    args[5] = MRB_INT_MAX < stat.ms_entries ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
+    args[0] = mrb_int_value(mrb, stat.ms_psize);
+    args[1] = mrb_int_value(mrb, stat.ms_depth);
+    args[2] = mrb_int_value(mrb, stat.ms_branch_pages);
+    args[3] = mrb_int_value(mrb, stat.ms_leaf_pages);
+    args[4] = mrb_int_value(mrb, stat.ms_overflow_pages);
+    args[5] = mrb_int_value(mrb, stat.ms_entries);
 
     return mrb_obj_new(mrb, LMDB_STAT, sizeof(args) / sizeof(args[0]), args);
 }
@@ -255,11 +255,11 @@ mrb_mdb_env_info(mrb_state* mrb, mrb_value self)
     mrb_mdb_check_error(mrb, "mdb_env_info");
 
     args[0] = stat.me_mapaddr ? mrb_cptr_value(mrb, stat.me_mapaddr) : mrb_nil_value();
-    args[1] = MRB_INT_MAX < stat.me_mapsize ? mrb_float_value(mrb, stat.me_mapsize) : mrb_fixnum_value(stat.me_mapsize);
-    args[2] = MRB_INT_MAX < stat.me_last_pgno ? mrb_float_value(mrb, stat.me_last_pgno) : mrb_fixnum_value(stat.me_last_pgno);
-    args[3] = MRB_INT_MAX < stat.me_last_txnid ? mrb_float_value(mrb, stat.me_last_txnid) : mrb_fixnum_value(stat.me_last_txnid);
-    args[4] = MRB_INT_MAX < stat.me_maxreaders ? mrb_float_value(mrb, stat.me_maxreaders) : mrb_fixnum_value(stat.me_maxreaders);
-    args[5] = MRB_INT_MAX < stat.me_numreaders ? mrb_float_value(mrb, stat.me_numreaders) : mrb_fixnum_value(stat.me_numreaders);
+    args[1] = mrb_int_value(mrb, stat.me_mapsize);
+    args[2] = mrb_int_value(mrb, stat.me_last_pgno);
+    args[3] = mrb_int_value(mrb, stat.me_last_txnid);
+    args[4] = mrb_int_value(mrb, stat.me_maxreaders);
+    args[5] = mrb_int_value(mrb, stat.me_numreaders);
 
     return mrb_obj_new(mrb, LMDB_ENV_INFO, sizeof(args) / sizeof(args[0]), args);
 }
@@ -328,11 +328,7 @@ mrb_mdb_env_get_flags(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_env_get_flags");
 
-    if (flags < MRB_INT_MIN||flags > MRB_INT_MAX) {
-        return mrb_float_value(mrb, flags);
-    } else {
-        return mrb_fixnum_value(flags);
-    }
+    return mrb_int_value(mrb, flags);
 }
 
 static mrb_value
@@ -404,11 +400,7 @@ mrb_mdb_env_get_maxreaders(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_env_get_maxreaders");
 
-    if (MRB_INT_MAX < readers) {
-        return mrb_float_value(mrb, readers);
-    } else {
-        return mrb_fixnum_value(readers);
-    }
+    return mrb_int_value(mrb, readers);
 }
 
 static mrb_value
@@ -438,13 +430,7 @@ mrb_mdb_env_get_maxkeysize(mrb_state* mrb, mrb_value self)
     MDB_env* env = (MDB_env*)DATA_PTR(self);
     mrb_assert(env);
 
-    int maxkeysize = mdb_env_get_maxkeysize(env);
-
-    if (MRB_INT_MAX < maxkeysize) {
-        return mrb_float_value(mrb, maxkeysize);
-    } else {
-        return mrb_fixnum_value(maxkeysize);
-    }
+    return mrb_int_value(mrb, mdb_env_get_maxkeysize(env));
 }
 
 static mrb_value
@@ -459,11 +445,7 @@ mrb_mdb_reader_check(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_reader_check");
 
-    if (MRB_INT_MAX < dead) {
-        return mrb_float_value(mrb, dead);
-    } else {
-        return mrb_fixnum_value(dead);
-    }
+    return mrb_int_value(mrb, dead);
 }
 
 static mrb_value
@@ -558,12 +540,7 @@ mrb_mdb_dbi_open(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_dbi_open");
 
-    if (MRB_INT_MAX < dbi) {
-        mdb_dbi_close(mdb_txn_env(txn), dbi);
-        mrb_raise(mrb, E_RANGE_ERROR, "dbi is out of range");
-    }
-
-    return mrb_fixnum_value(dbi);
+    return mrb_int_value(mrb, dbi);
 }
 
 static mrb_value
@@ -582,11 +559,7 @@ mrb_mdb_dbi_flags(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_dbi_flags");
 
-    if (MRB_INT_MAX < flags) {
-        mrb_raise(mrb, E_RANGE_ERROR, "flags is out of range");
-    }
-
-    return mrb_fixnum_value(flags);
+    return mrb_int_value(mrb, flags);
 }
 
 static mrb_value
@@ -606,12 +579,12 @@ mrb_mdb_stat(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_stat");
 
-    args[0] = MRB_INT_MAX < stat.ms_psize ? mrb_float_value(mrb, stat.ms_psize) : mrb_fixnum_value(stat.ms_psize);
-    args[1] = MRB_INT_MAX < stat.ms_depth ? mrb_float_value(mrb, stat.ms_depth) : mrb_fixnum_value(stat.ms_depth);
-    args[2] = MRB_INT_MAX < stat.ms_branch_pages ? mrb_float_value(mrb, stat.ms_branch_pages) : mrb_fixnum_value(stat.ms_branch_pages);
-    args[3] = MRB_INT_MAX < stat.ms_leaf_pages ? mrb_float_value(mrb, stat.ms_leaf_pages) : mrb_fixnum_value(stat.ms_leaf_pages);
-    args[4] = MRB_INT_MAX < stat.ms_overflow_pages ? mrb_float_value(mrb, stat.ms_overflow_pages) : mrb_fixnum_value(stat.ms_overflow_pages);
-    args[5] = MRB_INT_MAX < stat.ms_entries ? mrb_float_value(mrb, stat.ms_entries) : mrb_fixnum_value(stat.ms_entries);
+    args[0] = mrb_int_value(mrb, stat.ms_psize);
+    args[1] = mrb_int_value(mrb, stat.ms_depth);
+    args[2] = mrb_int_value(mrb, stat.ms_branch_pages);
+    args[3] = mrb_int_value(mrb, stat.ms_leaf_pages);
+    args[4] = mrb_int_value(mrb, stat.ms_overflow_pages);
+    args[5] = mrb_int_value(mrb, stat.ms_entries);
 
     return mrb_obj_new(mrb, LMDB_STAT, sizeof(args) / sizeof(args[0]), args);
 }
@@ -912,11 +885,7 @@ mrb_mdb_cursor_count(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_cursor_count");
 
-    if (MRB_INT_MAX < count) {
-        return mrb_float_value(mrb, count);
-    } else {
-        return mrb_fixnum_value(count);
-    }
+    return mrb_int_value(mrb, count);
 }
 
 void
@@ -925,42 +894,42 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 
     struct RClass *mdb_mod, *mdb_error, *mdb_env_class, *mdb_txn_class, *mdb_dbi_mod, *mdb_cursor_class;
 
-    if (bigendian_p()) {
-        mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix_be, MRB_ARGS_NONE());
-        mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin_be, MRB_ARGS_NONE());
-    } else {
-        mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix_le, MRB_ARGS_NONE());
-        mrb_define_method(mrb, mrb->fixnum_class, "to_bin", mrb_fix2bin_le, MRB_ARGS_NONE());
-    }
+#ifdef MRB_ENDIAN_BIG
+    mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix_be, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->integer_class, "to_bin", mrb_fix2bin_be, MRB_ARGS_NONE());
+#else
+    mrb_define_method(mrb, mrb->string_class, "to_fix", mrb_bin2fix_le, MRB_ARGS_NONE());
+    mrb_define_method(mrb, mrb->integer_class, "to_bin", mrb_fix2bin_le, MRB_ARGS_NONE());
+#endif
 
     mdb_mod = mrb_define_module(mrb, "MDB");
     mrb_define_const(mrb, mdb_mod, "VERSION", mrb_str_new_static(mrb, MDB_VERSION_STRING, strlen(MDB_VERSION_STRING)));
-    mrb_define_const(mrb, mdb_mod, "FIXEDMAP", mrb_fixnum_value(MDB_FIXEDMAP));
-    mrb_define_const(mrb, mdb_mod, "NOSUBDIR", mrb_fixnum_value(MDB_NOSUBDIR));
-    mrb_define_const(mrb, mdb_mod, "NOSYNC", mrb_fixnum_value(MDB_NOSYNC));
-    mrb_define_const(mrb, mdb_mod, "RDONLY", mrb_fixnum_value(MDB_RDONLY));
-    mrb_define_const(mrb, mdb_mod, "NOMETASYNC", mrb_fixnum_value(MDB_NOMETASYNC));
-    mrb_define_const(mrb, mdb_mod, "WRITEMAP", mrb_fixnum_value(MDB_WRITEMAP));
-    mrb_define_const(mrb, mdb_mod, "MAPASYNC", mrb_fixnum_value(MDB_MAPASYNC));
-    mrb_define_const(mrb, mdb_mod, "NOTLS", mrb_fixnum_value(MDB_NOTLS));
-    mrb_define_const(mrb, mdb_mod, "NOLOCK", mrb_fixnum_value(MDB_NOLOCK));
-    mrb_define_const(mrb, mdb_mod, "NORDAHEAD", mrb_fixnum_value(MDB_NORDAHEAD));
-    mrb_define_const(mrb, mdb_mod, "NOMEMINIT", mrb_fixnum_value(MDB_NOMEMINIT));
-    mrb_define_const(mrb, mdb_mod, "REVERSEKEY", mrb_fixnum_value(MDB_REVERSEKEY));
-    mrb_define_const(mrb, mdb_mod, "DUPSORT", mrb_fixnum_value(MDB_DUPSORT));
-    mrb_define_const(mrb, mdb_mod, "INTEGERKEY", mrb_fixnum_value(MDB_INTEGERKEY));
-    mrb_define_const(mrb, mdb_mod, "DUPFIXED", mrb_fixnum_value(MDB_DUPFIXED));
-    mrb_define_const(mrb, mdb_mod, "INTEGERDUP", mrb_fixnum_value(MDB_INTEGERDUP));
-    mrb_define_const(mrb, mdb_mod, "REVERSEDUP", mrb_fixnum_value(MDB_REVERSEDUP));
-    mrb_define_const(mrb, mdb_mod, "CREATE", mrb_fixnum_value(MDB_CREATE));
-    mrb_define_const(mrb, mdb_mod, "NOOVERWRITE", mrb_fixnum_value(MDB_NOOVERWRITE));
-    mrb_define_const(mrb, mdb_mod, "NODUPDATA", mrb_fixnum_value(MDB_NODUPDATA));
-    mrb_define_const(mrb, mdb_mod, "CURRENT", mrb_fixnum_value(MDB_CURRENT));
-    mrb_define_const(mrb, mdb_mod, "RESERVE", mrb_fixnum_value(MDB_RESERVE));
-    mrb_define_const(mrb, mdb_mod, "APPEND", mrb_fixnum_value(MDB_APPEND));
-    mrb_define_const(mrb, mdb_mod, "APPENDDUP", mrb_fixnum_value(MDB_APPENDDUP));
-    mrb_define_const(mrb, mdb_mod, "MULTIPLE", mrb_fixnum_value(MDB_MULTIPLE));
-    mrb_define_const(mrb, mdb_mod, "CP_COMPACT", mrb_fixnum_value(MDB_CP_COMPACT));
+    mrb_define_const(mrb, mdb_mod, "FIXEDMAP", mrb_int_value(mrb, MDB_FIXEDMAP));
+    mrb_define_const(mrb, mdb_mod, "NOSUBDIR", mrb_int_value(mrb, MDB_NOSUBDIR));
+    mrb_define_const(mrb, mdb_mod, "NOSYNC", mrb_int_value(mrb, MDB_NOSYNC));
+    mrb_define_const(mrb, mdb_mod, "RDONLY", mrb_int_value(mrb, MDB_RDONLY));
+    mrb_define_const(mrb, mdb_mod, "NOMETASYNC", mrb_int_value(mrb, MDB_NOMETASYNC));
+    mrb_define_const(mrb, mdb_mod, "WRITEMAP", mrb_int_value(mrb, MDB_WRITEMAP));
+    mrb_define_const(mrb, mdb_mod, "MAPASYNC", mrb_int_value(mrb, MDB_MAPASYNC));
+    mrb_define_const(mrb, mdb_mod, "NOTLS", mrb_int_value(mrb, MDB_NOTLS));
+    mrb_define_const(mrb, mdb_mod, "NOLOCK", mrb_int_value(mrb, MDB_NOLOCK));
+    mrb_define_const(mrb, mdb_mod, "NORDAHEAD", mrb_int_value(mrb, MDB_NORDAHEAD));
+    mrb_define_const(mrb, mdb_mod, "NOMEMINIT", mrb_int_value(mrb, MDB_NOMEMINIT));
+    mrb_define_const(mrb, mdb_mod, "REVERSEKEY", mrb_int_value(mrb, MDB_REVERSEKEY));
+    mrb_define_const(mrb, mdb_mod, "DUPSORT", mrb_int_value(mrb, MDB_DUPSORT));
+    mrb_define_const(mrb, mdb_mod, "INTEGERKEY", mrb_int_value(mrb, MDB_INTEGERKEY));
+    mrb_define_const(mrb, mdb_mod, "DUPFIXED", mrb_int_value(mrb, MDB_DUPFIXED));
+    mrb_define_const(mrb, mdb_mod, "INTEGERDUP", mrb_int_value(mrb, MDB_INTEGERDUP));
+    mrb_define_const(mrb, mdb_mod, "REVERSEDUP", mrb_int_value(mrb, MDB_REVERSEDUP));
+    mrb_define_const(mrb, mdb_mod, "CREATE", mrb_int_value(mrb, MDB_CREATE));
+    mrb_define_const(mrb, mdb_mod, "NOOVERWRITE", mrb_int_value(mrb, MDB_NOOVERWRITE));
+    mrb_define_const(mrb, mdb_mod, "NODUPDATA", mrb_int_value(mrb, MDB_NODUPDATA));
+    mrb_define_const(mrb, mdb_mod, "CURRENT", mrb_int_value(mrb, MDB_CURRENT));
+    mrb_define_const(mrb, mdb_mod, "RESERVE", mrb_int_value(mrb, MDB_RESERVE));
+    mrb_define_const(mrb, mdb_mod, "APPEND", mrb_int_value(mrb, MDB_APPEND));
+    mrb_define_const(mrb, mdb_mod, "APPENDDUP", mrb_int_value(mrb, MDB_APPENDDUP));
+    mrb_define_const(mrb, mdb_mod, "MULTIPLE", mrb_int_value(mrb, MDB_MULTIPLE));
+    mrb_define_const(mrb, mdb_mod, "CP_COMPACT", mrb_int_value(mrb, MDB_CP_COMPACT));
 
     mdb_error = mrb_define_class_under(mrb, mdb_mod, "Error", E_RUNTIME_ERROR);
 
@@ -1003,26 +972,26 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 
     mdb_cursor_class = mrb_define_class_under(mrb, mdb_mod, "Cursor", mrb->object_class);
     MRB_SET_INSTANCE_TT(mdb_cursor_class, MRB_TT_DATA);
-    mrb_define_const(mrb, mdb_cursor_class, "FIRST", mrb_fixnum_value(MDB_FIRST));
-    mrb_define_const(mrb, mdb_cursor_class, "FIRST_DUP", mrb_fixnum_value(MDB_FIRST_DUP));
-    mrb_define_const(mrb, mdb_cursor_class, "GET_BOTH", mrb_fixnum_value(MDB_GET_BOTH));
-    mrb_define_const(mrb, mdb_cursor_class, "GET_BOTH_RANGE", mrb_fixnum_value(MDB_GET_BOTH_RANGE));
-    mrb_define_const(mrb, mdb_cursor_class, "GET_CURRENT", mrb_fixnum_value(MDB_GET_CURRENT));
-    mrb_define_const(mrb, mdb_cursor_class, "GET_MULTIPLE", mrb_fixnum_value(MDB_GET_MULTIPLE));
-    mrb_define_const(mrb, mdb_cursor_class, "LAST", mrb_fixnum_value(MDB_LAST));
-    mrb_define_const(mrb, mdb_cursor_class, "LAST_DUP", mrb_fixnum_value(MDB_LAST_DUP));
-    mrb_define_const(mrb, mdb_cursor_class, "NEXT", mrb_fixnum_value(MDB_NEXT));
-    mrb_define_const(mrb, mdb_cursor_class, "NEXT_DUP", mrb_fixnum_value(MDB_NEXT_DUP));
-    mrb_define_const(mrb, mdb_cursor_class, "NEXT_MULTIPLE", mrb_fixnum_value(MDB_NEXT_MULTIPLE));
-    mrb_define_const(mrb, mdb_cursor_class, "NEXT_NODUP", mrb_fixnum_value(MDB_NEXT_NODUP));
-    mrb_define_const(mrb, mdb_cursor_class, "PREV", mrb_fixnum_value(MDB_PREV));
-    mrb_define_const(mrb, mdb_cursor_class, "PREV_DUP", mrb_fixnum_value(MDB_PREV_DUP));
-    mrb_define_const(mrb, mdb_cursor_class, "PREV_NODUP", mrb_fixnum_value(MDB_PREV_NODUP));
-    mrb_define_const(mrb, mdb_cursor_class, "SET", mrb_fixnum_value(MDB_SET));
-    mrb_define_const(mrb, mdb_cursor_class, "SET_KEY", mrb_fixnum_value(MDB_SET_KEY));
-    mrb_define_const(mrb, mdb_cursor_class, "SET_RANGE", mrb_fixnum_value(MDB_SET_RANGE));
+    mrb_define_const(mrb, mdb_cursor_class, "FIRST", mrb_int_value(mrb, MDB_FIRST));
+    mrb_define_const(mrb, mdb_cursor_class, "FIRST_DUP", mrb_int_value(mrb, MDB_FIRST_DUP));
+    mrb_define_const(mrb, mdb_cursor_class, "GET_BOTH", mrb_int_value(mrb, MDB_GET_BOTH));
+    mrb_define_const(mrb, mdb_cursor_class, "GET_BOTH_RANGE", mrb_int_value(mrb, MDB_GET_BOTH_RANGE));
+    mrb_define_const(mrb, mdb_cursor_class, "GET_CURRENT", mrb_int_value(mrb, MDB_GET_CURRENT));
+    mrb_define_const(mrb, mdb_cursor_class, "GET_MULTIPLE", mrb_int_value(mrb, MDB_GET_MULTIPLE));
+    mrb_define_const(mrb, mdb_cursor_class, "LAST", mrb_int_value(mrb, MDB_LAST));
+    mrb_define_const(mrb, mdb_cursor_class, "LAST_DUP", mrb_int_value(mrb, MDB_LAST_DUP));
+    mrb_define_const(mrb, mdb_cursor_class, "NEXT", mrb_int_value(mrb, MDB_NEXT));
+    mrb_define_const(mrb, mdb_cursor_class, "NEXT_DUP", mrb_int_value(mrb, MDB_NEXT_DUP));
+    mrb_define_const(mrb, mdb_cursor_class, "NEXT_MULTIPLE", mrb_int_value(mrb, MDB_NEXT_MULTIPLE));
+    mrb_define_const(mrb, mdb_cursor_class, "NEXT_NODUP", mrb_int_value(mrb, MDB_NEXT_NODUP));
+    mrb_define_const(mrb, mdb_cursor_class, "PREV", mrb_int_value(mrb, MDB_PREV));
+    mrb_define_const(mrb, mdb_cursor_class, "PREV_DUP", mrb_int_value(mrb, MDB_PREV_DUP));
+    mrb_define_const(mrb, mdb_cursor_class, "PREV_NODUP", mrb_int_value(mrb, MDB_PREV_NODUP));
+    mrb_define_const(mrb, mdb_cursor_class, "SET", mrb_int_value(mrb, MDB_SET));
+    mrb_define_const(mrb, mdb_cursor_class, "SET_KEY", mrb_int_value(mrb, MDB_SET_KEY));
+    mrb_define_const(mrb, mdb_cursor_class, "SET_RANGE", mrb_int_value(mrb, MDB_SET_RANGE));
 #ifdef MDB_PREV_MULTIPLE
-    mrb_define_const(mrb, mdb_cursor_class, "PREV_MULTIPLE", mrb_fixnum_value(MDB_PREV_MULTIPLE));
+    mrb_define_const(mrb, mdb_cursor_class, "PREV_MULTIPLE", mrb_int_value(mrb, MDB_PREV_MULTIPLE));
 #endif
     mrb_define_method(mrb, mdb_cursor_class, "initialize", mrb_mdb_cursor_open, MRB_ARGS_REQ(2));
     mrb_define_method(mrb, mdb_cursor_class, "renew", mrb_mdb_cursor_renew, MRB_ARGS_REQ(1));
@@ -1039,7 +1008,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
     do { \
         int ai = mrb_gc_arena_save(mrb); \
         struct RClass *err = mrb_define_class_under(mrb, mdb_mod, RB_CLASS_NAME, mdb_error); \
-        mrb_hash_set(mrb, error2class, mrb_fixnum_value(MDB_ERROR), mrb_obj_value(err)); \
+        mrb_hash_set(mrb, error2class, mrb_int_value(mrb, MDB_ERROR), mrb_obj_value(err)); \
         mrb_gc_arena_restore(mrb, ai); \
     } while(0)
 
@@ -1051,7 +1020,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 #define mrb_lmdb_define_cursor_op(MDB_CURSOR_OP, RB_CURSOR_OP_SYM) \
     do { \
         int ai = mrb_gc_arena_save(mrb); \
-        mrb_hash_set(mrb, cursor_ops, mrb_symbol_value(mrb_intern_lit(mrb, RB_CURSOR_OP_SYM)), mrb_fixnum_value(MDB_CURSOR_OP)); \
+        mrb_hash_set(mrb, cursor_ops, mrb_symbol_value(mrb_intern_lit(mrb, RB_CURSOR_OP_SYM)), mrb_int_value(mrb, MDB_CURSOR_OP)); \
         mrb_gc_arena_restore(mrb, ai); \
     } while(0)
 
