@@ -903,7 +903,7 @@ mrb_mruby_lmdb_gem_init(mrb_state* mrb)
 #endif
 
     mdb_mod = mrb_define_module(mrb, "MDB");
-    mrb_define_const(mrb, mdb_mod, "VERSION", mrb_str_new_static(mrb, MDB_VERSION_STRING, strlen(MDB_VERSION_STRING)));
+    mrb_define_const(mrb, mdb_mod, "VERSION", mrb_str_new_lit(mrb, MDB_VERSION_STRING));
     mrb_define_const(mrb, mdb_mod, "FIXEDMAP", mrb_int_value(mrb, MDB_FIXEDMAP));
     mrb_define_const(mrb, mdb_mod, "NOSUBDIR", mrb_int_value(mrb, MDB_NOSUBDIR));
     mrb_define_const(mrb, mdb_mod, "NOSYNC", mrb_int_value(mrb, MDB_NOSYNC));
