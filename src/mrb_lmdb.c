@@ -6,6 +6,7 @@ mrb_fix2bin_le(mrb_state* mrb, mrb_value self)
 {
     mrb_int number = mrb_integer(self);
     mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
+    mrb_gc_protect(mrb, pp);
     unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
 
 #ifdef MRB_INT64
@@ -34,6 +35,7 @@ mrb_fix2bin_be(mrb_state* mrb, mrb_value self)
 {
     mrb_int number = mrb_integer(self);
     mrb_value pp = mrb_str_new(mrb, NULL, sizeof(mrb_int));
+    mrb_gc_protect(mrb, pp);
     unsigned char* p = (unsigned char*)RSTRING_PTR(pp);
 
 #ifdef MRB_INT64
@@ -131,8 +133,10 @@ mrb_mdb_check_error(mrb_state* mrb, const char* func)
             mrb_value error2class = mrb_const_get(mrb, mrb_obj_value(E_LMDB_ERROR), mrb_intern_lit(mrb, "Error2Class"));
             struct RClass* errclass = mrb_class_ptr(mrb_hash_get(mrb, error2class, mrb_int_value(mrb, errno)));
             mrb_value func_str = mrb_str_new_static(mrb, func, strlen(func));
+            mrb_gc_protect(mrb, func_str);
             const char* errstr = mdb_strerror(errno);
             mrb_value error_str = mrb_str_new_static(mrb, errstr, strlen(errstr));
+            mrb_gc_protect(mrb, error_str);
             mrb_raisef(mrb, errclass, "%S: %S", func_str, error_str);
         }
     }
@@ -343,7 +347,7 @@ mrb_mdb_env_get_path(mrb_state* mrb, mrb_value self)
 
     mrb_mdb_check_error(mrb, "mdb_env_get_path");
 
-    return mrb_str_new_static(mrb, path, strlen(path));
+    return mrb_str_new(mrb, path, strlen(path));
 }
 
 static mrb_value
@@ -631,11 +635,7 @@ mrb_mdb_get(mrb_state* mrb, mrb_value self)
     errno = mdb_get(txn, (MDB_dbi)dbi, &key, &data);
 
     if (errno == MDB_SUCCESS) {
-        if (static_string) {
-            return mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size);
-        } else {
-            return mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
-        }
+        return mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
     }
     else if (errno == MDB_NOTFOUND) {
         return mrb_nil_value();
@@ -694,6 +694,7 @@ mrb_mdb_del(mrb_state* mrb, mrb_value self)
     }
 
     key_obj = mrb_str_to_str(mrb, key_obj);
+    mrb_gc_protect(mrb, key_obj);
     key.mv_size = RSTRING_LEN(key_obj);
     key.mv_data = RSTRING_PTR(key_obj);
 
@@ -786,6 +787,7 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
 
     if (mrb_test(key_obj)) {
         key_obj = mrb_str_to_str(mrb, key_obj);
+        mrb_gc_protect(mrb, key_obj);
         key.mv_size = RSTRING_LEN(key_obj);
         key.mv_data = RSTRING_PTR(key_obj);
     } else {
@@ -794,6 +796,7 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
     }
     if (mrb_test(data_obj)) {
         data_obj = mrb_str_to_str(mrb, data_obj);
+        mrb_gc_protect(mrb, data_obj);
         data.mv_size = RSTRING_LEN(data_obj);
         data.mv_data = RSTRING_PTR(data_obj);
     } else {
@@ -804,13 +807,10 @@ mrb_mdb_cursor_get(mrb_state* mrb, mrb_value self)
     errno = mdb_cursor_get(cursor, &key, &data, cursor_op);
 
     if (errno == MDB_SUCCESS) {
-        if (static_string) {
-            key_obj = mrb_str_new_static(mrb, (const char*)key.mv_data, key.mv_size);
-            data_obj = mrb_str_new_static(mrb, (const char*)data.mv_data, data.mv_size);
-        } else {
-            key_obj = mrb_str_new(mrb, (const char*)key.mv_data, key.mv_size);
-            data_obj = mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
-        }
+        key_obj = mrb_str_new(mrb, (const char*)key.mv_data, key.mv_size);
+        mrb_gc_protect(mrb, key_obj);
+        data_obj = mrb_str_new(mrb, (const char*)data.mv_data, data.mv_size);
+        mrb_gc_protect(mrb, data_obj);
         return mrb_assoc_new(mrb, key_obj, data_obj);
     }
     else if (errno == MDB_NOTFOUND) {
@@ -839,9 +839,11 @@ mrb_mdb_cursor_put(mrb_state* mrb, mrb_value self)
     }
 
     key_obj = mrb_str_to_str(mrb, key_obj);
+    mrb_gc_protect(mrb, key_obj);
     key.mv_size = RSTRING_LEN(key_obj);
     key.mv_data = RSTRING_PTR(key_obj);
     data_obj = mrb_str_to_str(mrb, data_obj);
+    mrb_gc_protect(mrb, data_obj);
     data.mv_size = RSTRING_LEN(data_obj);
     data.mv_data = RSTRING_PTR(data_obj);
 
