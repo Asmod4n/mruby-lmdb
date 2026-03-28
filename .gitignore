@@ -37,3 +37,7 @@ compile_commands.json
 build_config.rb.lock
 .cache
 mruby
+benchmark/bench_c_lmdb
+node_modules/
+package.json
+package-lock.json
