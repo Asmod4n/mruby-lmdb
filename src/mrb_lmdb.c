@@ -700,18 +700,18 @@ mrb_mdb_cursor_count_m(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_multi_get_m(mrb_state *mrb, mrb_value self)
 {
-  mrb_value txn_v, keys_ary;
-  mrb_int dbi;
-  mrb_get_args(mrb, "oio", &txn_v, &dbi, &keys_ary);
+  mrb_value txn_v;
+  const mrb_value *keys;
+  mrb_int dbi, len;
+  mrb_get_args(mrb, "oia", &txn_v, &dbi, &keys, &len);
 
   MDB_txn *txn = mrb_mdb_txn_get(mrb, txn_v);
   MDB_dbi real_dbi = mrb_mdb_dbi(mrb, dbi);
-  mrb_int len = RARRAY_LEN(keys_ary);
   mrb_value result = mrb_ary_new_capa(mrb, len);
   int ai = mrb_gc_arena_save(mrb);
 
   for (mrb_int i = 0; i < len; i++) {
-    mrb_value key_obj = mrb_str_to_str(mrb, mrb_ary_entry(keys_ary, i));
+    mrb_value key_obj = mrb_str_to_str(mrb, keys[i]);
     MDB_val key = { (size_t)RSTRING_LEN(key_obj), RSTRING_PTR(key_obj) };
     MDB_val data;
 
@@ -738,20 +738,19 @@ mrb_mdb_multi_get_m(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_mdb_batch_put_m(mrb_state *mrb, mrb_value self)
 {
-  mrb_value txn_v, pairs_ary;
-  mrb_int dbi, flags = 0;
-  mrb_get_args(mrb, "oio|i", &txn_v, &dbi, &pairs_ary, &flags);
+  mrb_value txn_v;
+  const mrb_value *pairs;
+  mrb_int dbi, len, flags = 0;
+  mrb_get_args(mrb, "oia|i", &txn_v, &dbi, &pairs, &len, &flags);
 
   MDB_txn *txn = mrb_mdb_txn_get(mrb, txn_v);
   MDB_dbi real_dbi = mrb_mdb_dbi(mrb, dbi);
   unsigned int real_flags = mrb_mdb_flags(mrb, flags);
-  mrb_int len = RARRAY_LEN(pairs_ary);
   int ai = mrb_gc_arena_save(mrb);
 
   for (mrb_int i = 0; i < len; i++) {
-    mrb_value pair = mrb_ary_entry(pairs_ary, i);
-    mrb_value key_obj = mrb_str_to_str(mrb, mrb_ary_entry(pair, 0));
-    mrb_value val_obj = mrb_str_to_str(mrb, mrb_ary_entry(pair, 1));
+    mrb_value key_obj = mrb_str_to_str(mrb, mrb_ary_entry(pairs[i], 0));
+    mrb_value val_obj = mrb_str_to_str(mrb, mrb_ary_entry(pairs[i], 1));
 
     MDB_val key  = { (size_t)RSTRING_LEN(key_obj), RSTRING_PTR(key_obj) };
     MDB_val data = { (size_t)RSTRING_LEN(val_obj), RSTRING_PTR(val_obj) };
@@ -766,7 +765,6 @@ mrb_mdb_batch_put_m(mrb_state *mrb, mrb_value self)
 
   return self;
 }
-
 /*
  * MDB.append_values(txn, dbi, values_array)
  *
