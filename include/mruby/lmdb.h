@@ -1,16 +1,29 @@
-﻿#ifndef MRUBY_LMDB_H
-#define MRUBY_LMDB_H
+﻿#pragma once
+
+/*
+ * mruby-lmdb C API
+ *
+ * Basic get/put/del for C callers. All returned strings are copies.
+ * For zero-copy access, use the C++ header <mruby/lmdb.hpp> instead.
+ */
 
 #include <mruby.h>
-
-#ifdef MRB_INT16
-# error MRB_INT16 is too small for mruby-lmdb.
-#endif
+#include <lmdb.h>
 
 MRB_BEGIN_DECL
 
-#define E_LMDB_ERROR (mrb_class_get_under(mrb, mrb_module_get(mrb, "MDB"), "Error"))
+/* Copied mruby String, or mrb_nil_value() if not found. */
+MRB_API mrb_value mrb_lmdb_get(mrb_state *mrb, MDB_txn *txn, MDB_dbi dbi,
+                                const void *key, size_t key_len);
+
+/* Raises on error. flags: MDB_NOOVERWRITE, MDB_APPEND, etc. */
+MRB_API void      mrb_lmdb_put(mrb_state *mrb, MDB_txn *txn, MDB_dbi dbi,
+                                const void *key, size_t key_len,
+                                const void *val, size_t val_len,
+                                unsigned int flags);
+
+/* Returns TRUE if deleted, FALSE if key not found. */
+MRB_API mrb_bool  mrb_lmdb_del(mrb_state *mrb, MDB_txn *txn, MDB_dbi dbi,
+                                const void *key, size_t key_len);
 
 MRB_END_DECL
-
-#endif
