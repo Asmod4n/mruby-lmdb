@@ -468,3 +468,230 @@ assert('MDB::Env reader_check returns integer') do
     assert_true dead >= 0
   end
 end
+
+# ============================================================================
+# Integer key sort order
+# ============================================================================
+
+assert('Integer keys sort in numeric order via MDB_INTEGERKEY') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    # Insert out of order
+    [100, 1, 50, 10, 1000, 0, 255, 256].each do |n|
+      db[n.to_bin] = "val_#{n}"
+    end
+
+    keys = []
+    db.each { |k, _v| keys << k.to_fix }
+    assert_equal [0, 1, 10, 50, 100, 255, 256, 1000], keys
+  end
+end
+
+assert('Integer keys: first and last reflect numeric order') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    [500, 1, 9999, 42].each do |n|
+      db[n.to_bin] = "val_#{n}"
+    end
+
+    assert_equal 1, db.first[0].to_fix
+    assert_equal 9999, db.last[0].to_fix
+  end
+end
+
+assert('Integer keys: sequential append maintains order') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    db << "zero"
+    db << "one"
+    db << "two"
+    db << "three"
+    db << "four"
+
+    keys = []
+    vals = []
+    db.each { |k, v| keys << k.to_fix; vals << v }
+    assert_equal [0, 1, 2, 3, 4], keys
+    assert_equal ["zero", "one", "two", "three", "four"], vals
+  end
+end
+
+assert('Integer keys: concat preserves insertion order') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    db.concat(["a", "b", "c", "d", "e"])
+
+    keys = []
+    vals = []
+    db.each { |k, v| keys << k.to_fix; vals << v }
+    assert_equal [0, 1, 2, 3, 4], keys
+    assert_equal ["a", "b", "c", "d", "e"], vals
+  end
+end
+
+assert('Integer keys: concat continues after existing keys') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    db[0.to_bin] = "existing_0"
+    db[1.to_bin] = "existing_1"
+    db[2.to_bin] = "existing_2"
+
+    db.concat(["new_3", "new_4", "new_5"])
+
+    keys = []
+    vals = []
+    db.each { |k, v| keys << k.to_fix; vals << v }
+    assert_equal [0, 1, 2, 3, 4, 5], keys
+    assert_equal ["existing_0", "existing_1", "existing_2", "new_3", "new_4", "new_5"], vals
+  end
+end
+
+assert('Integer keys: large values sort correctly') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    values = [0, 1, 127, 128, 255, 256, 65535, 65536, 100000]
+    values.each { |n| db[n.to_bin] = n.to_s }
+
+    keys = []
+    db.each { |k, _v| keys << k.to_fix }
+    assert_equal values.sort, keys
+  end
+end
+
+assert('Integer keys: negative values roundtrip') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+
+    [-1, -100, -32768, 0, 1, 100].each do |n|
+      db[n.to_bin] = "val_#{n}"
+    end
+
+    keys = []
+    db.each { |k, _v| keys << k.to_fix }
+
+    # All keys should roundtrip correctly
+    assert_equal 6, keys.length
+    [-1, -100, -32768, 0, 1, 100].each do |n|
+      assert_true keys.include?(n)
+    end
+  end
+end
+
+assert('to_bin / to_fix roundtrip across range') do
+  values = [0, 1, -1, 42, 127, 128, 255, 256, 65535, 65536, -32768, 1000000, -1000000]
+  values.each do |n|
+    assert_equal n, n.to_bin.to_fix
+  end
+end
+
+assert('to_bin produces fixed-width strings') do
+  [0, 1, -1, 255, 65536, 1000000].each do |n|
+    bin = n.to_bin
+    # All keys should be sizeof(mrb_int) bytes
+    assert_true bin.bytesize == 0.to_bin.bytesize
+  end
+end
+
+assert('to_fix rejects wrong-sized strings') do
+  assert_raise(TypeError) { "".to_fix }
+  assert_raise(TypeError) { "x".to_fix }
+  assert_raise(TypeError) { "xy".to_fix } if 0.to_bin.bytesize > 2
+  assert_raise(TypeError) { ("x" * 100).to_fix }
+end
+
+# ============================================================================
+# String key lexicographic sort (default DB, no INTEGERKEY)
+# ============================================================================
+
+assert('String keys sort lexicographically') do
+  with_test_db do |env|
+    db = env.database
+
+    ["banana", "apple", "cherry", "date", "apricot"].each do |s|
+      db[s] = "1"
+    end
+
+    keys = []
+    db.each { |k, _v| keys << k }
+    assert_equal ["apple", "apricot", "banana", "cherry", "date"], keys
+  end
+end
+
+assert('String keys: prefix scan returns lexicographic subset') do
+  with_test_db do |env|
+    db = env.database
+
+    ["user:001", "user:010", "user:002", "user:100", "post:001"].each do |s|
+      db[s] = "1"
+    end
+
+    keys = []
+    db.each_prefix("user:") { |k, _v| keys << k }
+    assert_equal ["user:001", "user:002", "user:010", "user:100"], keys
+  end
+end
+
+assert('String keys: numeric strings sort lexicographically not numerically') do
+  with_test_db do |env|
+    db = env.database
+
+    ["9", "10", "1", "100", "2", "20"].each do |s|
+      db[s] = "1"
+    end
+
+    keys = []
+    db.each { |k, _v| keys << k }
+    # Lexicographic: "1" < "10" < "100" < "2" < "20" < "9"
+    assert_equal ["1", "10", "100", "2", "20", "9"], keys
+  end
+end
+
+assert('String keys: zero-padded numeric strings sort correctly') do
+  with_test_db do |env|
+    db = env.database
+
+    ["009", "010", "001", "100", "002", "020"].each do |s|
+      db[s] = "1"
+    end
+
+    keys = []
+    db.each { |k, _v| keys << k }
+    assert_equal ["001", "002", "009", "010", "020", "100"], keys
+  end
+end
+
+# ============================================================================
+# Bulk operations sort order
+# ============================================================================
+
+assert('multi_get returns values in key order of input') do
+  with_test_db do |env|
+    db = env.database
+
+    db["c"] = "3"
+    db["a"] = "1"
+    db["b"] = "2"
+
+    result = db.multi_get(["b", "a", "c", "missing"])
+    assert_equal ["2", "1", "3", nil], result
+  end
+end
+
+assert('batch_put maintains correct sort order') do
+  with_test_db do |env|
+    db = env.database
+
+    pairs = [["z", "26"], ["a", "1"], ["m", "13"]]
+    db.batch_put(pairs)
+
+    keys = []
+    db.each { |k, _v| keys << k }
+    assert_equal ["a", "m", "z"], keys
+  end
+end

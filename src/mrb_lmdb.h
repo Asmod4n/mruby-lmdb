@@ -57,24 +57,25 @@ static const struct mrb_data_type mdb_cursor_type = {
 
 
 
-/* ── Error handling: use return code, never errno ────────────────────────── */
+/* ── Error handling: only called on error path, never on success ─────────── */
 
-static void
+mrb_noreturn static void
 mrb_mdb_raise(mrb_state *mrb, int rc, const char *func)
 {
-  if (likely(rc == MDB_SUCCESS)) return;
-
+  if (rc > 0) {
+    /* POSIX errno */
+    mrb_sys_fail(mrb, func);
+  }
   const char *errstr = mdb_strerror(rc);
 
-  if (rc > 0) {
-    mrb_raisef(mrb, E_RUNTIME_ERROR, "%s: %s", func, errstr);
-  } else {
-    mrb_value error2class = mrb_const_get(mrb,
-      mrb_obj_value(mrb_class_get_under_id(mrb, mrb_module_get_id(mrb, MRB_SYM(MDB)), MRB_SYM(Error))), MRB_SYM(Error2Class));
-    mrb_value cls = mrb_hash_fetch(mrb, error2class,
-      mrb_convert_int(mrb, rc), mrb_obj_value(E_RUNTIME_ERROR));
-    mrb_raisef(mrb, mrb_class_ptr(cls), "%s: %s", func, errstr);
-  }
+  /* Negative rc: LMDB-specific error */
+  struct RClass *mdb_error = mrb_class_get_under_id(mrb,
+    mrb_module_get_id(mrb, MRB_SYM(MDB)), MRB_SYM(Error));
+  mrb_value error2class = mrb_const_get(mrb,
+    mrb_obj_value(mdb_error), MRB_SYM(Error2Class));
+  mrb_value key = mrb_fixnum_value(rc);
+  mrb_value cls = mrb_hash_fetch(mrb, error2class, key, mrb_obj_value(mdb_error));
+  mrb_raisef(mrb, mrb_class_ptr(cls), "%s: %s", func, errstr);
 }
 
 /* ── Safe data pointer extraction ─────────────────────────────────────────── */
@@ -83,27 +84,27 @@ static inline MDB_env *
 mrb_mdb_env_get(mrb_state *mrb, mrb_value self)
 {
   MDB_env *p = (MDB_env *)mrb_data_check_get_ptr(mrb, self, &mdb_env_type);
-  if (unlikely(!p))
-    mrb_raise(mrb, E_IO_ERROR, "closed MDB::Env");
-  return p;
+  if (likely(p))
+    return p;
+  mrb_raise(mrb, E_IO_ERROR, "closed MDB::Env");
 }
 
 static inline MDB_txn *
 mrb_mdb_txn_get(mrb_state *mrb, mrb_value self)
 {
   MDB_txn *p = (MDB_txn *)mrb_data_check_get_ptr(mrb, self, &mdb_txn_type);
-  if (unlikely(!p))
-    mrb_raise(mrb, E_RUNTIME_ERROR, "closed MDB::Txn");
-  return p;
+  if (likely(p))
+    return p;
+  mrb_raise(mrb, E_RUNTIME_ERROR, "closed MDB::Txn");
 }
 
 static inline MDB_cursor *
 mrb_mdb_cursor_get(mrb_state *mrb, mrb_value self)
 {
   MDB_cursor *p = (MDB_cursor *)mrb_data_check_get_ptr(mrb, self, &mdb_cursor_type);
-  if (unlikely(!p))
-    mrb_raise(mrb, E_RUNTIME_ERROR, "closed MDB::Cursor");
-  return p;
+  if (likely(p))
+    return p;
+  mrb_raise(mrb, E_RUNTIME_ERROR, "closed MDB::Cursor");
 }
 
 /* ── Range validation helpers ─────────────────────────────────────────────── */
@@ -111,17 +112,17 @@ mrb_mdb_cursor_get(mrb_state *mrb, mrb_value self)
 static inline unsigned int
 mrb_mdb_flags(mrb_state *mrb, mrb_int flags)
 {
-  if (unlikely(flags < 0 || (uint64_t)flags > UINT_MAX))
-    mrb_raise(mrb, E_RANGE_ERROR, "flags out of range");
-  return (unsigned int)flags;
+  if (likely(flags >= 0 && (uint64_t)flags <= UINT_MAX))
+    return (unsigned int)flags;
+  mrb_raise(mrb, E_RANGE_ERROR, "flags out of range");
 }
 
 static inline MDB_dbi
 mrb_mdb_dbi(mrb_state *mrb, mrb_int dbi)
 {
-  if (unlikely(dbi < 0 || (uint64_t)dbi > UINT_MAX))
-    mrb_raise(mrb, E_RANGE_ERROR, "dbi out of range");
-  return (MDB_dbi)dbi;
+  if (likely(dbi >= 0 && (uint64_t)dbi <= UINT_MAX))
+    return (MDB_dbi)dbi;
+  mrb_raise(mrb, E_RANGE_ERROR, "dbi out of range");
 }
 
 /* ── MDB_val helpers ──────────────────────────────────────────────────────── */

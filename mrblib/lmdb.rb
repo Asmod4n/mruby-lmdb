@@ -29,9 +29,9 @@ module MDB
         result = yield txn
         txn.commit
         result
-      rescue
+      rescue => e
         txn.abort
-        raise
+        raise e
       end
     end
 
@@ -202,9 +202,9 @@ module MDB
       begin
         yield txn, @dbi
         txn.commit
-      rescue
+      rescue => e
         txn.abort
-        raise
+        raise e
       end
     end
 
@@ -220,33 +220,48 @@ module MDB
         cursor = nil
         txn.commit
         txn = nil
-      rescue
+      rescue => e
         cursor.close if cursor
         txn.abort if txn
-        raise
+        raise e
       end
       self
     end
 
-    # Batch append (requires sorted key order)
+    # Batch multiple reads in a single RDONLY transaction — C fast path.
+    # Returns an Array of values (nil for missing keys).
+    #
+    #   db.multi_get(["key1", "key2", "key3"])
+    #   #=> ["val1", nil, "val3"]
+    #
+    def multi_get(keys)
+      txn = Txn.new(@env, RDONLY)
+      MDB.multi_get(txn, @dbi, keys)
+    ensure
+      txn.abort if txn
+    end
+
+    # Batch write from array of [key, value] pairs — C fast path.
+    # One txn, N puts, no Ruby method dispatch per item.
+    #
+    #   db.batch_put([["k1", "v1"], ["k2", "v2"]])
+    #
+    def batch_put(pairs, flags = 0)
+      @env.transaction do |txn|
+        MDB.batch_put(txn, @dbi, pairs, flags)
+      end
+      self
+    end
+
+    # Batch append (requires sorted key order) — C fast path.
+    # Replaces the Ruby concat with a single C call that does
+    # cursor open + last key decode + N cursor_put(APPEND) internally.
+    #
+    #   db.concat(["a", "b", "c"])
+    #
     def concat(values)
-      txn = Txn.new(@env)
-      cursor = Cursor.new(txn, @dbi)
-      begin
-        record = cursor.last
-        key = record ? record.first.to_fix.succ : 0
-        values.each do |value|
-          cursor.put(key.to_bin, value, MDB::APPEND)
-          key += 1
-        end
-        cursor.close
-        cursor = nil
-        txn.commit
-        txn = nil
-      rescue
-        cursor.close if cursor
-        txn.abort if txn
-        raise
+      @env.transaction do |txn|
+        MDB.append_values(txn, @dbi, values)
       end
       self
     end
@@ -275,9 +290,9 @@ module MDB
         result = yield txn, @dbi
         txn.commit
         result
-      rescue
+      rescue => e
         txn.abort
-        raise
+        raise e
       end
     end
 
@@ -293,10 +308,10 @@ module MDB
         txn.commit
         txn = nil
         result
-      rescue
+      rescue => e
         cur.close if cur
         txn.abort if txn
-        raise
+        raise e
       end
     end
 
