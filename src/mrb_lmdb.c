@@ -387,7 +387,6 @@ mrb_mdb_get_m(mrb_state *mrb, mrb_value self)
 
   MDB_txn *txn = mrb_mdb_txn_get(mrb, txn_v);
   key_obj = mrb_str_to_str(mrb, key_obj);
-  mrb_gc_protect(mrb, key_obj);
 
   MDB_val key = { (size_t)RSTRING_LEN(key_obj), RSTRING_PTR(key_obj) };
   MDB_val data;
@@ -408,9 +407,7 @@ mrb_mdb_put_m(mrb_state *mrb, mrb_value self)
   MDB_txn *txn = mrb_mdb_txn_get(mrb, txn_v);
 
   key_obj = mrb_str_to_str(mrb, key_obj);
-  mrb_gc_protect(mrb, key_obj);
   data_obj = mrb_str_to_str(mrb, data_obj);
-  mrb_gc_protect(mrb, data_obj);
 
   MDB_val key  = { (size_t)RSTRING_LEN(key_obj),  RSTRING_PTR(key_obj) };
   MDB_val data = { (size_t)RSTRING_LEN(data_obj), RSTRING_PTR(data_obj) };
@@ -431,7 +428,6 @@ mrb_mdb_del_m(mrb_state *mrb, mrb_value self)
   MDB_txn *txn = mrb_mdb_txn_get(mrb, txn_v);
 
   key_obj = mrb_str_to_str(mrb, key_obj);
-  mrb_gc_protect(mrb, key_obj);
 
   MDB_val key = { (size_t)RSTRING_LEN(key_obj), RSTRING_PTR(key_obj) };
   MDB_val data_v;
@@ -439,7 +435,7 @@ mrb_mdb_del_m(mrb_state *mrb, mrb_value self)
 
   if (!mrb_nil_p(data_obj)) {
     data_obj = mrb_str_to_str(mrb, data_obj);
-    mrb_gc_protect(mrb, data_obj);
+
     data_v.mv_size = (size_t)RSTRING_LEN(data_obj);
     data_v.mv_data = RSTRING_PTR(data_obj);
     data_ptr = &data_v;
@@ -535,13 +531,13 @@ mrb_mdb_cursor_get_m(mrb_state *mrb, mrb_value self)
 
   if (!mrb_nil_p(key_obj)) {
     key_obj = mrb_str_to_str(mrb, key_obj);
-    mrb_gc_protect(mrb, key_obj);
+
     key.mv_size = (size_t)RSTRING_LEN(key_obj);
     key.mv_data = RSTRING_PTR(key_obj);
   }
   if (!mrb_nil_p(data_obj)) {
     data_obj = mrb_str_to_str(mrb, data_obj);
-    mrb_gc_protect(mrb, data_obj);
+
     data.mv_size = (size_t)RSTRING_LEN(data_obj);
     data.mv_data = RSTRING_PTR(data_obj);
   }
@@ -551,9 +547,7 @@ mrb_mdb_cursor_get_m(mrb_state *mrb, mrb_value self)
   mrb_mdb_raise(mrb, rc, "mdb_cursor_get");
 
   mrb_value k = mrb_mdb_val_to_str(mrb, &key);
-  mrb_gc_protect(mrb, k);
   mrb_value v = mrb_mdb_val_to_str(mrb, &data);
-  mrb_gc_protect(mrb, v);
   return mrb_assoc_new(mrb, k, v);
 }
 
@@ -566,9 +560,7 @@ mrb_mdb_cursor_put_m(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "oo|i", &key_obj, &data_obj, &flags);
 
   key_obj = mrb_str_to_str(mrb, key_obj);
-  mrb_gc_protect(mrb, key_obj);
   data_obj = mrb_str_to_str(mrb, data_obj);
-  mrb_gc_protect(mrb, data_obj);
 
   MDB_val key  = { (size_t)RSTRING_LEN(key_obj),  RSTRING_PTR(key_obj) };
   MDB_val data = { (size_t)RSTRING_LEN(data_obj), RSTRING_PTR(data_obj) };
