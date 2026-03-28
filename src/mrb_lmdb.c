@@ -1,20 +1,6 @@
 #include "mruby/lmdb.h"
 #include "mrb_lmdb.h"
 
-/* ========================================================================
- * Integer ↔ binary helpers (for MDB_INTEGERKEY)
- *
- * Native endianness to match LMDB's MDB_INTEGERKEY comparator.
- *
- * C API:
- *   mrb_value mrb_lmdb_fix2bin(mrb_state *mrb, mrb_int number)
- *   mrb_int   mrb_lmdb_bin2fix(mrb_state *mrb, const char *ptr, mrb_int len)
- *
- * Ruby API (registered via mrb_define_method_id):
- *   Integer#to_bin -> String
- *   String#to_fix  -> Integer
- * ======================================================================== */
-
 static mrb_value
 mrb_lmdb_fix2bin(mrb_state *mrb, mrb_int number)
 {
@@ -23,7 +9,7 @@ mrb_lmdb_fix2bin(mrb_state *mrb, mrb_int number)
 
 #ifdef MRB_ENDIAN_BIG
 
-#ifdef MRB_INT64
+#if MRB_INT_BIT == 64
   p[0] = (uint8_t)(number >> 56);
   p[1] = (uint8_t)(number >> 48);
   p[2] = (uint8_t)(number >> 40);
@@ -32,19 +18,21 @@ mrb_lmdb_fix2bin(mrb_state *mrb, mrb_int number)
   p[5] = (uint8_t)(number >> 16);
   p[6] = (uint8_t)(number >>  8);
   p[7] = (uint8_t)(number);
-#elif defined(MRB_INT16)
+#elif MRB_INT_BIT == 16
   p[0] = (uint8_t)(number >> 8);
   p[1] = (uint8_t)(number);
-#else
+#elif MRB_INT_BIT == 32
   p[0] = (uint8_t)(number >> 24);
   p[1] = (uint8_t)(number >> 16);
   p[2] = (uint8_t)(number >>  8);
   p[3] = (uint8_t)(number);
+#else
+  mrb_bug(mrb, "unknown MRB_INT_BIT");
 #endif
 
 #else /* little-endian */
 
-#ifdef MRB_INT64
+#if MRB_INT_BIT == 64
   p[0] = (uint8_t)(number);
   p[1] = (uint8_t)(number >>  8);
   p[2] = (uint8_t)(number >> 16);
@@ -53,14 +41,16 @@ mrb_lmdb_fix2bin(mrb_state *mrb, mrb_int number)
   p[5] = (uint8_t)(number >> 40);
   p[6] = (uint8_t)(number >> 48);
   p[7] = (uint8_t)(number >> 56);
-#elif defined(MRB_INT16)
+#elif MRB_INT_BIT == 16
   p[0] = (uint8_t)(number);
   p[1] = (uint8_t)(number >> 8);
-#else
+#elif MRB_INT_BIT == 32
   p[0] = (uint8_t)(number);
   p[1] = (uint8_t)(number >>  8);
   p[2] = (uint8_t)(number >> 16);
   p[3] = (uint8_t)(number >> 24);
+#else
+  mrb_bug(mrb, "unknown MRB_INT_BIT");
 #endif
 
 #endif /* MRB_ENDIAN_BIG */
@@ -78,7 +68,7 @@ mrb_lmdb_bin2fix(mrb_state *mrb, const char *ptr, mrb_int len)
 
 #ifdef MRB_ENDIAN_BIG
 
-#ifdef MRB_INT64
+#if MRB_INT_BIT == 64
   uint64_t u =
       ((uint64_t)p[0] << 56) |
       ((uint64_t)p[1] << 48) |
@@ -88,21 +78,23 @@ mrb_lmdb_bin2fix(mrb_state *mrb, const char *ptr, mrb_int len)
       ((uint64_t)p[5] << 16) |
       ((uint64_t)p[6] <<  8) |
       ((uint64_t)p[7]);
-#elif defined(MRB_INT16)
+#elif MRB_INT_BIT == 16
   uint16_t u =
       ((uint16_t)p[0] << 8) |
       ((uint16_t)p[1]);
-#else
+#elif MRB_INT_BIT == 32
   uint32_t u =
       ((uint32_t)p[0] << 24) |
       ((uint32_t)p[1] << 16) |
       ((uint32_t)p[2] <<  8) |
       ((uint32_t)p[3]);
+#else
+  mrb_bug(mrb, "unknown MRB_INT_BIT");
 #endif
 
 #else /* little-endian */
 
-#ifdef MRB_INT64
+#if MRB_INT_BIT == 64
   uint64_t u =
       ((uint64_t)p[0])       |
       ((uint64_t)p[1] <<  8) |
@@ -112,16 +104,18 @@ mrb_lmdb_bin2fix(mrb_state *mrb, const char *ptr, mrb_int len)
       ((uint64_t)p[5] << 40) |
       ((uint64_t)p[6] << 48) |
       ((uint64_t)p[7] << 56);
-#elif defined(MRB_INT16)
+#elif MRB_INT_BIT == 16
   uint16_t u =
       ((uint16_t)p[0])      |
       ((uint16_t)p[1] << 8);
-#else
+#elif MRB_INT_BIT == 32
   uint32_t u =
       ((uint32_t)p[0])       |
       ((uint32_t)p[1] <<  8) |
       ((uint32_t)p[2] << 16) |
       ((uint32_t)p[3] << 24);
+#else
+  mrb_bug(mrb, "unknown MRB_INT_BIT");
 #endif
 
 #endif /* MRB_ENDIAN_BIG */
@@ -634,7 +628,7 @@ mrb_mdb_cursor_get_m(mrb_state *mrb, mrb_value self)
     data.mv_data = RSTRING_PTR(data_obj);
   }
 
-  int rc = mdb_cursor_get(cursor, &key, &data, (MDB_cursor_op)cursor_op);
+  int rc = mdb_cursor_get(cursor, &key, &data, mrb_mdb_cursor_op(mrb, cursor_op));
   if (likely(rc == MDB_SUCCESS)) {
     mrb_value k = mrb_mdb_val_to_str(mrb, &key);
     mrb_value v = mrb_mdb_val_to_str(mrb, &data);
@@ -765,20 +759,21 @@ mrb_mdb_batch_put_m(mrb_state *mrb, mrb_value self)
 
   return self;
 }
+
 /*
  * MDB.append_values(txn, dbi, values_array)
  *
  * Auto-incrementing integer keys with MDB_APPEND.
- * Finds the last key via cursor, calls String#to_fix to decode it,
- * then appends each value with Integer#to_bin encoded keys.
- * Single txn, single cursor, no Ruby re-entry per value beyond to_bin.
+ * Finds the last key via cursor, then appends each value with key+1, key+2, ...
+ * Single txn, single cursor, no Ruby re-entry.
  */
 static mrb_value
 mrb_mdb_append_values_m(mrb_state *mrb, mrb_value self)
 {
-  mrb_value txn_v, *values_ary;
+  mrb_value txn_v;
+  const mrb_value *values;
   mrb_int dbi, len;
-  mrb_get_args(mrb, "oia", &txn_v, &dbi, &values_ary, &len);
+  mrb_get_args(mrb, "oia", &txn_v, &dbi, &values, &len);
 
   MDB_txn *txn = mrb_mdb_txn_get(mrb, txn_v);
   MDB_dbi real_dbi = mrb_mdb_dbi(mrb, dbi);
@@ -791,8 +786,6 @@ mrb_mdb_append_values_m(mrb_state *mrb, mrb_value self)
 
     rc = mdb_cursor_get(cursor, &last_key, &last_data, MDB_LAST);
     if (rc == MDB_SUCCESS) {
-      /* Decode last key via String#to_fix */
-
       next_key = mrb_lmdb_bin2fix(mrb, last_key.mv_data, last_key.mv_size) + 1;
     } else if (rc != MDB_NOTFOUND) {
       mdb_cursor_close(cursor);
@@ -802,9 +795,7 @@ mrb_mdb_append_values_m(mrb_state *mrb, mrb_value self)
     int ai = mrb_gc_arena_save(mrb);
 
     for (mrb_int i = 0; i < len; i++) {
-      mrb_value val_obj = mrb_str_to_str(mrb, values_ary[i]);
-
-      /* Encode key via Integer#to_bin */
+      mrb_value val_obj = mrb_str_to_str(mrb, values[i]);
       mrb_value key_obj = mrb_lmdb_fix2bin(mrb, next_key);
 
       MDB_val key  = { (size_t)RSTRING_LEN(key_obj), RSTRING_PTR(key_obj) };
@@ -887,12 +878,12 @@ mrb_mruby_lmdb_gem_init(mrb_state *mrb)
   /* ── Module & classes ─────────────────────────────────────────────────── */
   mdb_mod = mrb_define_module_id(mrb, MRB_SYM(MDB));
 
-  mrb_define_const(mrb, mdb_mod, "VERSION",
-    mrb_str_new_lit(mrb, MDB_VERSION_STRING));
+  mrb_define_const_id(mrb, mdb_mod, MRB_SYM(VERSION),
+    mrb_str_new_lit_frozen(mrb, MDB_VERSION_STRING));
 
   /* Flags */
   #define DEFINE_MDB_CONST(name) \
-    mrb_define_const(mrb, mdb_mod, #name, mrb_int_value(mrb, MDB_##name))
+    mrb_define_const_id(mrb, mdb_mod, MRB_SYM(name), mrb_int_value(mrb, MDB_##name))
 
   DEFINE_MDB_CONST(FIXEDMAP);
   DEFINE_MDB_CONST(NOSUBDIR);
@@ -998,7 +989,7 @@ mrb_mruby_lmdb_gem_init(mrb_state *mrb)
   MRB_SET_INSTANCE_TT(mdb_cursor_class, MRB_TT_CDATA);
 
   #define DEFINE_CURSOR_CONST(name) \
-    mrb_define_const(mrb, mdb_cursor_class, #name, mrb_int_value(mrb, MDB_##name))
+    mrb_define_const_id(mrb, mdb_cursor_class, MRB_SYM(name), mrb_int_value(mrb, MDB_##name))
 
   DEFINE_CURSOR_CONST(FIRST);     DEFINE_CURSOR_CONST(FIRST_DUP);
   DEFINE_CURSOR_CONST(GET_BOTH);  DEFINE_CURSOR_CONST(GET_BOTH_RANGE);
