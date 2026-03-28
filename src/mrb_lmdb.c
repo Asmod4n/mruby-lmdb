@@ -1385,9 +1385,7 @@ static mrb_value
 mrb_mdb_database_multi_get_m(mrb_state *mrb, mrb_value self)
 {
   mrb_value keys_ary;
-  mrb_get_args(mrb, "o", &keys_ary);
-  keys_ary = mrb_ensure_array_type(mrb, keys_ary);
-
+  mrb_get_args(mrb, "A", &keys_ary);
 
   MDB_txn *txn;
   int rc = mdb_txn_begin(mrb_mdb_database_env(mrb, self), NULL, MDB_RDONLY, &txn);
@@ -1424,9 +1422,7 @@ mrb_mdb_database_batch_put_m(mrb_state *mrb, mrb_value self)
 {
   mrb_value pairs_ary;
   mrb_int flags = 0;
-  mrb_get_args(mrb, "o|i", &pairs_ary, &flags);
-  pairs_ary = mrb_ensure_array_type(mrb, pairs_ary);
-
+  mrb_get_args(mrb, "A|i", &pairs_ary, &flags);
   unsigned int real_flags = mrb_mdb_flags(mrb, flags);
 
   MDB_txn *txn;
