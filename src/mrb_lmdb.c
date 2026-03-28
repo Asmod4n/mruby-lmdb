@@ -1200,10 +1200,10 @@ mrb_mdb_database_each_m(mrb_state *mrb, mrb_value self)
       mrb_mdb_val_to_str(mrb, &key), mrb_mdb_val_to_str(mrb, &data));
     mrb_bool exc = FALSE;
     mrb_lmdb_yield1_ctx ctx1 = { blk, pair };
-    mrb_protect_error(mrb, mrb_lmdb_yield1_cb, &ctx1, &exc);
+    mrb_value result = mrb_protect_error(mrb, mrb_lmdb_yield1_cb, &ctx1, &exc);
     mrb_gc_arena_restore(mrb, ai);
     if (exc) {
-      exc_val = mrb_obj_value(mrb->exc);
+      exc_val = result;
       break;
     }
     rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT);
@@ -1253,10 +1253,10 @@ mrb_mdb_database_each_key_m(mrb_state *mrb, mrb_value self)
       mrb_mdb_val_to_str(mrb, &key), mrb_mdb_val_to_str(mrb, &data));
     mrb_bool exc = FALSE;
     mrb_lmdb_yield1_ctx ctx1 = { blk, pair };
-    mrb_protect_error(mrb, mrb_lmdb_yield1_cb, &ctx1, &exc);
+    mrb_value result = mrb_protect_error(mrb, mrb_lmdb_yield1_cb, &ctx1, &exc);
     mrb_gc_arena_restore(mrb, ai);
     if (exc) {
-      exc_val = mrb_obj_value(mrb->exc);
+      exc_val = result;
       break;
     }
     rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT_DUP);
@@ -1313,10 +1313,10 @@ mrb_mdb_database_each_prefix_m(mrb_state *mrb, mrb_value self)
       mrb_mdb_val_to_str(mrb, &key), mrb_mdb_val_to_str(mrb, &data));
     mrb_bool exc = FALSE;
     mrb_lmdb_yield1_ctx ctx1 = { blk, pair };
-    mrb_protect_error(mrb, mrb_lmdb_yield1_cb, &ctx1, &exc);
+    mrb_value result = mrb_protect_error(mrb, mrb_lmdb_yield1_cb, &ctx1, &exc);
     mrb_gc_arena_restore(mrb, ai);
     if (exc) {
-      exc_val = mrb_obj_value(mrb->exc);
+      exc_val = result;
       break;
     }
     rc = mdb_cursor_get(cursor, &key, &data, MDB_NEXT);

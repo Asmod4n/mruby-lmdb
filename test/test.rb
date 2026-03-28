@@ -1158,3 +1158,123 @@ assert('MDB.put accepts integer key via to_s coercion') do
     assert_equal "v", db["42"]
   end
 end
+
+#
+# Missing tests for exception‑in‑block behavior
+#
+
+assert('Database#each block raise propagates and cleans up') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db["b"] = "2"
+
+    seen = []
+    begin
+      db.each do |k, v|
+        seen << k
+        raise "boom" if k == "a"
+      end
+    rescue => e
+      assert_equal "boom", e.message
+    end
+
+    assert_equal ["a"], seen
+  end
+end
+
+assert('Database#each_prefix block raise propagates and cleans up') do
+  with_test_db do |env|
+    db = env.database
+    db["x:1"] = "A"
+    db["x:2"] = "B"
+    db["y:1"] = "C"
+
+    seen = []
+    begin
+      db.each_prefix("x:") do |k, v|
+        seen << k
+        raise "stop" if k == "x:1"
+      end
+    rescue => e
+      assert_equal "stop", e.message
+    end
+
+    assert_equal ["x:1"], seen
+  end
+end
+
+assert('Database#transaction block raise aborts and re-raises') do
+  with_test_db do |env|
+    db = env.database
+
+    assert_raise(RuntimeError) do
+      db.transaction do |txn, dbi|
+        MDB.put(txn, db.dbi, "k", "v")
+        raise "fail"
+      end
+    end
+
+    assert_nil db["k"]
+  end
+end
+
+assert('Database#batch block raise aborts and invalidates txn') do
+  with_test_db do |env|
+    db = env.database
+    captured_txn = nil
+
+    begin
+      db.batch do |txn, dbi|
+        captured_txn = txn
+        raise "boom"
+      end
+    rescue
+    end
+
+    assert_raise(RuntimeError) { MDB.put(captured_txn, db.dbi, "x", "y") }
+  end
+end
+
+assert('Database#cursor block raise closes cursor and re-raises') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+
+    closed_cursor = nil
+
+    assert_raise(RuntimeError) do
+      db.cursor(MDB::RDONLY) do |c|
+        closed_cursor = c
+        raise "explode"
+      end
+    end
+
+    assert_raise(RuntimeError) { closed_cursor.first }
+  end
+end
+
+assert('Cursor iteration block raise cleans up cursor') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db["b"] = "2"
+
+    cursor_ref = nil
+
+    begin
+      db.cursor(MDB::RDONLY) do |c|
+        cursor_ref = c
+        r = c.first
+        while r
+          raise "stop" if r[0] == "a"
+          r = c.next
+        end
+      end
+    rescue => e
+      assert_equal "stop", e.message
+    end
+
+    assert_raise(RuntimeError) { cursor_ref.next }
+  end
+end
