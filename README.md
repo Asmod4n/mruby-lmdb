@@ -48,7 +48,6 @@ These examples use the **actual fastest paths**:
 - `.each_prefix` for prefix scans
 - `.multi_get` for bulk reads
 - `.batch_put` for bulk writes
-- `<<` and `concat` for append‑only integer keys
 
 No magic. No wrappers. No abstractions you don’t have.
 
@@ -134,17 +133,6 @@ end
 
 ---
 
-## **Fastest append‑only inserts (INTEGERKEY)**
-
-```ruby
-db << "first"
-db.concat(["second", "third"])
-```
-
-Uses `MDB_APPEND` internally.
-
----
-
 # **Speed**
 
 `mruby-lmdb` preserves LMDB’s performance model inside mruby.
@@ -195,7 +183,6 @@ All numbers below come from the **same benchmark workload** used across C, Pytho
 | Full scan | `db.each` |
 | Prefix scan | `db.each_prefix` |
 | Bulk reads | `db.multi_get` |
-| Append‑only inserts | `db <<` / `db.concat` |
 
 ---
 
@@ -206,8 +193,8 @@ LMDB’s `MDB_INTEGERKEY` expects **native‑endian, fixed‑width integers**.
 `mruby-lmdb` provides:
 
 ```ruby
-n.to_bin   # => binary string, sizeof(mrb_int) bytes
-str.to_fix # => decode back to integer
+10.to_bin   # => binary string, sizeof(mrb_int) bytes
+binary_str.to_fix # => decode back to integer
 ```
 
 Properties:
