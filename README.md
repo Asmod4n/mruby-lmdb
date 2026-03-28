@@ -1,4 +1,111 @@
-﻿# mruby-lmdb
+﻿# 📦 Migration Guide for 2.0
+### Handling the new big‑endian integer encoding
+
+Version 2.0 introduces a **strict, platform‑independent big‑endian encoding** for integers.
+This ensures correct LMDB key ordering, but it also means that **binary integer keys written by older versions cannot be read back correctly**.
+
+This guide explains how to migrate.
+
+---
+
+## 🔍 What changed?
+
+### Before 2.0
+- Integer encoding depended on the **machine’s native endianness**.
+- A database created on little‑endian hardware produced different key bytes than one created on big‑endian hardware.
+- LMDB sorts keys lexicographically, so numeric ordering was not guaranteed.
+
+### Starting with 2.0
+- Integers are always encoded in **big‑endian**.
+- Encoding width is fixed to **2, 4, or 8 bytes** depending on `MRB_INT_BIT`.
+- Output is now **stable, portable, and correctly sortable**.
+
+---
+
+## ⚠️ Will my existing database still work?
+
+It depends:
+
+### You *are affected* if:
+- You used `<<` or `concat` to build LMDB keys that included integers.
+- You stored integers using the old `Fixnum#to_bin` / `String#to_int`.
+
+### You are *not affected* if:
+- You never stored integers as part of LMDB keys.
+- You stored integers only inside values (not keys).
+- You used your own serialization format.
+
+If you are affected, you must **re‑encode your keys**.
+
+---
+
+## 🔧 How to migrate an existing database
+
+There are two realistic migration strategies:
+
+---
+
+## **Option 1: Rebuild the database (recommended)**
+
+If your database is small or can be regenerated:
+
+1. Open the old DB using the **old version** of the library.
+2. Iterate over all key/value pairs.
+3. Convert the old integer keys back using the old `bin2fix`.
+4. Re‑encode them using the new `fix2bin`.
+5. Write everything into a fresh LMDB environment.
+
+This guarantees a clean, correct result.
+
+---
+
+## **Option 2: Write a one‑time migration script**
+
+If you need an in‑place upgrade, you can write a script that:
+
+1. Reads each key as raw bytes.
+2. Decodes it using the **old** logic (endianness‑dependent).
+3. Re‑encodes it using the **new** big‑endian logic.
+4. Writes the new key/value pair into a new DB.
+
+You cannot safely do this inside the same LMDB environment because LMDB does not allow key mutation — you must write into a new DB.
+
+---
+
+## 🧪 How to detect old vs. new keys
+
+If you need to distinguish them programmatically:
+
+- Old keys match the machine’s native endianness.
+- New keys always start with the **most significant byte**.
+
+Example for 32‑bit ints:
+
+| Value | Old (little‑endian) | New (big‑endian) |
+|-------|----------------------|------------------|
+| 1     | `01 00 00 00`        | `00 00 00 01`    |
+| 255   | `FF 00 00 00`        | `00 00 00 FF`    |
+
+If you see the least significant byte first, it’s an old key.
+
+---
+
+## 🛡️ Why this change was necessary
+
+LMDB sorts keys lexicographically.
+If integers are not encoded in big‑endian, then:
+
+- `2` sorts *after* `1000`
+- `10` sorts *before* `2`
+- ordering depends on CPU architecture
+
+This breaks range scans, prefix scans, and any logic that relies on numeric ordering.
+
+The new encoding fixes all of this permanently.
+
+---
+
+# mruby-lmdb
 mruby wrapper for Lightning Memory-Mapped Database from Symas http://symas.com/mdb/
 
 # mruby-lmdb Usage Guide
