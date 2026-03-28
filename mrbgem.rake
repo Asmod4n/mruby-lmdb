@@ -9,6 +9,8 @@
   spec.add_dependency 'mruby-c-ext-helpers'
   spec.add_test_dependency 'mruby-random'
   spec.add_test_dependency 'mruby-io'
+  spec.add_test_dependency 'mruby-dir'
+  spec.add_test_dependency 'mruby-string-ext'
 
   if spec.build.toolchains.include?('android')
     spec.cc.defines << 'HAVE_PTHREADS'

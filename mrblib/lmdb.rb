@@ -11,21 +11,6 @@ module MDB
 
   class Database
     include Enumerable
-
-    def each(&block)
-      raise ArgumentError, "no block given" unless block
-      txn = Txn.new(@env, RDONLY)
-      cursor = Cursor.new(txn, @dbi)
-      record = cursor.first
-      while record
-        yield record
-        record = cursor.next
-      end
-      self
-    ensure
-      cursor.close if cursor
-      txn.abort if txn
-    end
   end
 
   class Cursor

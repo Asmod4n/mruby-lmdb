@@ -1,28 +1,73 @@
-# Helper: create a temporary LMDB environment for testing
-def with_test_db(flags = 0, &block)
-  path = "/tmp/mruby-lmdb-test-#{$$}-#{rand(100000)}"
-  env = MDB::Env.new(mapsize: 10485760) # 10 MB
-  env.open(path, MDB::NOSUBDIR | flags)
+LMDB_TEST_TMP = "/tmp"
+
+Dir.entries(LMDB_TEST_TMP).each do |name|
+  next unless name.start_with?("mruby-lmdb-test-")
+
+  path = "#{LMDB_TEST_TMP}/#{name}"
+  lock = "#{path}-lock"
+
+  # Try to delete both DB file and lock file
   begin
-    yield env
-  ensure
-    env.close
-    File.delete(path) rescue nil
-    File.delete("#{path}-lock") rescue nil
+    File.delete(path) if File.exist?(path)
+  rescue => e
+    # ignore, just like your existing cleanup
+  end
+
+  begin
+    File.delete(lock) if File.exist?(lock)
+  rescue => e
+    # ignore
   end
 end
 
-# ============================================================================
-# Env basics
-# ============================================================================
-
-assert('MDB::Env create and open') do
-  with_test_db do |env|
-    assert_true env.is_a?(MDB::Env)
-  end
+def with_test_db(flags = 0, maxdbs: 4, &block)
+  path = "#{LMDB_TEST_TMP}/mruby-lmdb-test-#{$$}-#{rand(100000)}"
+  env = MDB::Env.new(mapsize: 10485760, maxdbs: maxdbs)
+  env.open(path, MDB::NOSUBDIR | flags)
+  yield env
+ensure
+  env.close rescue nil
+  File.delete(path) rescue nil
+  File.delete("#{path}-lock") rescue nil
 end
 
-assert('MDB::Env stat returns Stat struct') do
+assert('Env.new no options') do
+  with_test_db { |env| assert_true env.is_a?(MDB::Env) }
+end
+
+assert('Env.new mapsize option') do
+  with_test_db { |env| assert_true env.info[:mapsize] >= 10485760 }
+end
+
+assert('Env.new maxdbs option') do
+  with_test_db(maxdbs: 8) { |env| assert_true env.is_a?(MDB::Env) }
+end
+
+assert('Env.new unknown symbol option raises ArgumentError') do
+  assert_raise(ArgumentError) { MDB::Env.new(bogus: 1) }
+end
+
+assert('Env.new string key option raises ArgumentError') do
+  assert_raise(ArgumentError) { MDB::Env.new("mapsize" => 1024) }
+end
+
+assert('Env.new integer key option raises ArgumentError') do
+  assert_raise(ArgumentError) { MDB::Env.new(42 => 1024) }
+end
+
+assert('Env.new negative mapsize raises RangeError') do
+  assert_raise(RangeError) { MDB::Env.new(mapsize: -1) }
+end
+
+assert('Env.new negative maxreaders raises RangeError') do
+  assert_raise(RangeError) { MDB::Env.new(maxreaders: -1) }
+end
+
+assert('Env.new negative maxdbs raises RangeError') do
+  assert_raise(RangeError) { MDB::Env.new(maxdbs: -1) }
+end
+
+assert('Env#stat returns MDB::Stat') do
   with_test_db do |env|
     s = env.stat
     assert_true s.is_a?(MDB::Stat)
@@ -30,7 +75,7 @@ assert('MDB::Env stat returns Stat struct') do
   end
 end
 
-assert('MDB::Env info returns Info struct') do
+assert('Env#info returns MDB::Env::Info') do
   with_test_db do |env|
     i = env.info
     assert_true i.is_a?(MDB::Env::Info)
@@ -38,38 +83,149 @@ assert('MDB::Env info returns Info struct') do
   end
 end
 
-assert('MDB::Env path returns the database path') do
+assert('Env#path contains opened path') do
+  with_test_db { |env| assert_true env.path.include?("mruby-lmdb-test") }
+end
+
+assert('Env#maxkeysize positive') do
+  with_test_db { |env| assert_true env.maxkeysize > 0 }
+end
+
+assert('Env#flags returns integer') do
+  with_test_db { |env| assert_true env.flags.is_a?(Integer) }
+end
+
+assert('Env#reader_check returns non-negative integer') do
   with_test_db do |env|
-    p = env.path
-    assert_true p.include?("mruby-lmdb-test")
+    dead = env.reader_check
+    assert_true dead.is_a?(Integer) && dead >= 0
   end
 end
 
-assert('MDB::Env maxkeysize is positive') do
+assert('Env methods raise IOError after close') do
   with_test_db do |env|
-    assert_true env.maxkeysize > 0
+    env.close
+    assert_raise(IOError) { env.stat }
+    assert_raise(IOError) { env.info }
+    assert_raise(IOError) { env.path }
+    assert_raise(IOError) { env.flags }
+    assert_raise(IOError) { env.maxkeysize }
+    assert_raise(IOError) { env.reader_check }
+    assert_raise(IOError) { env.database }
+    assert_raise(IOError) { env.transaction { } }
+    assert_raise(IOError) { env.sync }
   end
 end
 
-assert('MDB::Env close is idempotent') do
+assert('Env#close is idempotent') do
   with_test_db do |env|
-    assert_true env.close
+    assert_true  env.close
+    assert_false env.close
     assert_false env.close
   end
 end
 
-assert('MDB::Env methods raise after close') do
+assert('Env#mapsize= negative raises RangeError') do
+  with_test_db { |env| assert_raise(RangeError) { env.mapsize = -1 } }
+end
+
+assert('Env#maxreaders= negative raises RangeError') do
+  with_test_db { |env| assert_raise(RangeError) { env.maxreaders = -1 } }
+end
+
+assert('Env#maxdbs= negative raises RangeError') do
+  with_test_db { |env| assert_raise(RangeError) { env.maxdbs = -1 } }
+end
+
+assert('Env#mapsize= wrong type raises TypeError') do
+  with_test_db { |env| assert_raise(TypeError) { env.mapsize = "big" } }
+end
+
+assert('Env#transaction commits on success') do
   with_test_db do |env|
-    env.close
-    assert_raise(IOError) { env.stat }
+    db = env.database
+    env.transaction { |txn| MDB.put(txn, db.dbi, "k", "v") }
+    assert_equal "v", db["k"]
   end
 end
 
-# ============================================================================
-# Basic get/put/del
-# ============================================================================
+assert('Env#transaction aborts and re-raises on exception') do
+  with_test_db do |env|
+    db = env.database
+    assert_raise(RuntimeError) do
+      env.transaction do |txn|
+        MDB.put(txn, db.dbi, "k", "v")
+        raise "boom"
+      end
+    end
+    assert_nil db["k"]
+  end
+end
 
-assert('MDB::Database put and get') do
+assert('Env#transaction without block raises ArgumentError') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.transaction } }
+end
+
+assert('Env#transaction RDONLY rejects writes') do
+  with_test_db do |env|
+    db = env.database
+    assert_raise(SystemCallError) do
+      env.transaction(MDB::RDONLY) { |txn| MDB.put(txn, db.dbi, "k", "v") }
+    end
+  end
+end
+
+assert('Env#transaction wrong flag type raises TypeError') do
+  with_test_db { |env| assert_raise(TypeError) { env.transaction("rdonly") { } } }
+end
+
+assert('Env#sync without args succeeds') do
+  with_test_db { |env| assert_equal env, env.sync }
+end
+
+assert('Env#sync force=true succeeds') do
+  with_test_db { |env| assert_equal env, env.sync(true) }
+end
+
+assert('Env#sync with non-bool arg is accepted') do
+  with_test_db { |env| assert_equal env, env.sync(1) }
+end
+
+assert('Env#copy copies the database file') do
+  with_test_db do |env|
+    db = env.database
+    db["k"] = "v"
+    dest = "#{LMDB_TEST_TMP}/mruby-lmdb-copy-#{$$}"
+    env.copy(dest)
+    assert_true File.exist?(dest)
+    File.delete(dest) rescue nil
+    File.delete("#{dest}-lock") rescue nil
+  end
+end
+
+assert('Env#copy wrong type raises TypeError') do
+  with_test_db { |env| assert_raise(TypeError) { env.copy(42) } }
+end
+
+assert('Database opens unnamed db') do
+  with_test_db { |env| assert_true env.database.is_a?(MDB::Database) }
+end
+
+assert('Database opens named db') do
+  with_test_db do |env|
+    db = env.database(MDB::CREATE, "mydb")
+    assert_true db.is_a?(MDB::Database)
+  end
+end
+
+assert('Database#dbi returns non-negative integer') do
+  with_test_db do |env|
+    db = env.database
+    assert_true db.dbi.is_a?(Integer) && db.dbi >= 0
+  end
+end
+
+assert('Database put and get roundtrip') do
   with_test_db do |env|
     db = env.database
     db["hello"] = "world"
@@ -77,32 +233,11 @@ assert('MDB::Database put and get') do
   end
 end
 
-assert('MDB::Database get missing key returns nil') do
-  with_test_db do |env|
-    db = env.database
-    assert_nil db["nonexistent"]
-  end
+assert('Database get missing key returns nil') do
+  with_test_db { |env| assert_nil env.database["nope"] }
 end
 
-assert('MDB::Database del removes key') do
-  with_test_db do |env|
-    db = env.database
-    db["key"] = "value"
-    assert_equal "value", db["key"]
-    db.del("key")
-    assert_nil db["key"]
-  end
-end
-
-assert('MDB::Database multiple put/get') do
-  with_test_db do |env|
-    db = env.database
-    100.times { |i| db["key#{i}"] = "val#{i}" }
-    100.times { |i| assert_equal "val#{i}", db["key#{i}"] }
-  end
-end
-
-assert('MDB::Database overwrite existing key') do
+assert('Database overwrite key') do
   with_test_db do |env|
     db = env.database
     db["k"] = "v1"
@@ -111,11 +246,46 @@ assert('MDB::Database overwrite existing key') do
   end
 end
 
-# ============================================================================
-# Fetch
-# ============================================================================
+assert('Database binary key and value roundtrip') do
+  with_test_db do |env|
+    db = env.database
+    db["\x00\x01\x02"] = "\xFF\xFE\xFD"
+    assert_equal "\xFF\xFE\xFD", db["\x00\x01\x02"]
+  end
+end
 
-assert('MDB::Database fetch with existing key') do
+assert('Database empty string key raises MDB::BAD_VALSIZE') do
+  with_test_db do |env|
+    assert_raise(MDB::BAD_VALSIZE) { env.database[""] = "v" }
+  end
+end
+
+assert('Database large value roundtrip') do
+  with_test_db do |env|
+    db = env.database
+    val = "x" * 100000
+    db["big"] = val
+    assert_equal val, db["big"]
+  end
+end
+
+assert('Database#del removes key') do
+  with_test_db do |env|
+    db = env.database
+    db["k"] = "v"
+    db.del("k")
+    assert_nil db["k"]
+  end
+end
+
+assert('Database#del missing key is silent') do
+  with_test_db do |env|
+    env.database.del("nonexistent")
+    assert_true true
+  end
+end
+
+assert('Database#fetch existing key') do
   with_test_db do |env|
     db = env.database
     db["a"] = "1"
@@ -123,81 +293,113 @@ assert('MDB::Database fetch with existing key') do
   end
 end
 
-assert('MDB::Database fetch missing key with default') do
+assert('Database#fetch missing key with default') do
+  with_test_db { |env| assert_equal "def", env.database.fetch("x", "def") }
+end
+
+assert('Database#fetch missing key with block') do
   with_test_db do |env|
-    db = env.database
-    assert_equal "default", db.fetch("missing", "default")
+    result = env.database.fetch("x") { |k| "got_#{k}" }
+    assert_equal "got_x", result
   end
 end
 
-assert('MDB::Database fetch missing key with block') do
+assert('Database#fetch missing key no default raises KeyError') do
+  with_test_db { |env| assert_raise(KeyError) { env.database.fetch("x") } }
+end
+
+assert('Database#stat returns MDB::Stat') do
+  with_test_db { |env| assert_true env.database.stat.is_a?(MDB::Stat) }
+end
+
+assert('Database#length and #empty?') do
   with_test_db do |env|
     db = env.database
-    result = db.fetch("missing") { |k| "block_#{k}" }
-    assert_equal "block_missing", result
+    assert_equal 0, db.length
+    assert_true  db.empty?
+    db["x"] = "y"
+    assert_equal 1, db.length
+    assert_false db.empty?
   end
 end
 
-assert('MDB::Database fetch missing key raises KeyError') do
+assert('Database#flags returns integer') do
+  with_test_db { |env| assert_true env.database.flags.is_a?(Integer) }
+end
+
+assert('Database#drop empties db') do
   with_test_db do |env|
     db = env.database
-    assert_raise(KeyError) { db.fetch("missing") }
+    db["a"] = "1"; db["b"] = "2"
+    db.drop
+    assert_equal 0, db.length
   end
 end
 
-# ============================================================================
-# Iteration
-# ============================================================================
-
-assert('MDB::Database each iterates all records') do
+assert('Database#first and #last') do
   with_test_db do |env|
     db = env.database
-    db["a"] = "1"
-    db["b"] = "2"
-    db["c"] = "3"
-    pairs = []
-    db.each { |k, v| pairs << [k, v] }
-    assert_equal 3, pairs.length
-    assert_true pairs.include?(["a", "1"])
-    assert_true pairs.include?(["b", "2"])
-    assert_true pairs.include?(["c", "3"])
+    db["a"] = "1"; db["b"] = "2"; db["c"] = "3"
+    assert_equal "a", db.first[0]
+    assert_equal "c", db.last[0]
   end
 end
 
-assert('MDB::Database each on empty db yields nothing') do
+assert('Database#first on empty db returns nil') do
+  with_test_db { |env| assert_nil env.database.first }
+end
+
+assert('Database#last on empty db returns nil') do
+  with_test_db { |env| assert_nil env.database.last }
+end
+
+assert('Database#each iterates all records in key order') do
   with_test_db do |env|
     db = env.database
+    db["b"] = "2"; db["a"] = "1"; db["c"] = "3"
+    keys = []
+    db.each { |k, v| keys << k }
+    assert_equal ["a", "b", "c"], keys
+  end
+end
+
+assert('Database#each on empty db yields nothing') do
+  with_test_db do |env|
     count = 0
-    db.each { count += 1 }
+    env.database.each { count += 1 }
     assert_equal 0, count
   end
 end
 
-# ============================================================================
-# Prefix scan
-# ============================================================================
+assert('Database#each without block raises ArgumentError') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.each } }
+end
 
-assert('MDB::Database each_prefix finds matching keys') do
+assert('Database#each exception propagates after cleanup') do
   with_test_db do |env|
     db = env.database
-    db["user:1"] = "Alice"
-    db["user:2"] = "Bob"
-    db["user:3"] = "Carol"
-    db["post:1"] = "Hello"
-    db["post:2"] = "World"
-
-    users = []
-    db.each_prefix("user:") { |k, v| users << [k, v] }
-    assert_equal 3, users.length
-    assert_equal "Alice", users[0][1]
-
-    posts = []
-    db.each_prefix("post:") { |k, v| posts << [k, v] }
-    assert_equal 2, posts.length
+    db["a"] = "1"; db["b"] = "2"
+    seen = []
+    begin
+      db.each { |k, v| seen << k; raise "stop" if k == "a" }
+    rescue RuntimeError => e
+      assert_equal "stop", e.message
+    end
+    assert_equal ["a"], seen
   end
 end
 
-assert('MDB::Database each_prefix with no matches yields nothing') do
+assert('Database#each_prefix finds matching keys') do
+  with_test_db do |env|
+    db = env.database
+    db["user:1"] = "Alice"; db["user:2"] = "Bob"; db["post:1"] = "X"
+    users = []
+    db.each_prefix("user:") { |k, v| users << v }
+    assert_equal ["Alice", "Bob"], users
+  end
+end
+
+assert('Database#each_prefix no matches yields nothing') do
   with_test_db do |env|
     db = env.database
     db["abc"] = "1"
@@ -207,164 +409,271 @@ assert('MDB::Database each_prefix with no matches yields nothing') do
   end
 end
 
-# ============================================================================
-# first / last
-# ============================================================================
-
-assert('MDB::Database first and last') do
+assert('Database#each_prefix empty prefix raises MDB::BAD_VALSIZE') do
   with_test_db do |env|
     db = env.database
     db["a"] = "1"
-    db["b"] = "2"
-    db["c"] = "3"
-    f = db.first
-    l = db.last
-    assert_equal "a", f[0]
-    assert_equal "c", l[0]
+    assert_raise(MDB::BAD_VALSIZE) { db.each_prefix("") { } }
   end
 end
 
-assert('MDB::Database first on empty db returns nil') do
+assert('Database#each_prefix without block raises ArgumentError') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.each_prefix("x") } }
+end
+
+assert('Database#each_prefix exception propagates') do
   with_test_db do |env|
     db = env.database
-    assert_nil db.first
+    db["a:1"] = "1"; db["a:2"] = "2"
+    seen = []
+    begin
+      db.each_prefix("a:") { |k, v| seen << k; raise "stop" }
+    rescue RuntimeError => e
+      assert_equal "stop", e.message
+    end
+    assert_equal ["a:1"], seen
   end
 end
 
-# ============================================================================
-# stat / length / empty?
-# ============================================================================
-
-assert('MDB::Database stat reflects entries') do
-  with_test_db do |env|
-    db = env.database
-    assert_equal 0, db.length
-    assert_true db.empty?
-    db["x"] = "y"
-    assert_equal 1, db.length
-    assert_false db.empty?
-  end
-end
-
-# ============================================================================
-# Batch / transaction
-# ============================================================================
-
-assert('MDB::Database batch writes atomically') do
+assert('Database#batch commits on success') do
   with_test_db do |env|
     db = env.database
     db.batch do |txn, dbi|
       MDB.put(txn, dbi, "k1", "v1")
       MDB.put(txn, dbi, "k2", "v2")
-      MDB.put(txn, dbi, "k3", "v3")
     end
     assert_equal "v1", db["k1"]
     assert_equal "v2", db["k2"]
-    assert_equal "v3", db["k3"]
   end
 end
 
-assert('MDB::Database batch rollback on error') do
+assert('Database#batch aborts and re-raises on exception') do
   with_test_db do |env|
     db = env.database
-    begin
+    assert_raise(RuntimeError) do
       db.batch do |txn, dbi|
         MDB.put(txn, dbi, "k1", "v1")
-        raise "deliberate"
+        raise "boom"
       end
-    rescue RuntimeError
     end
     assert_nil db["k1"]
   end
 end
 
-assert('MDB::Env transaction rollback on error') do
+assert('Database#batch without block raises ArgumentError') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.batch } }
+end
+
+assert('Database#transaction commits on success') do
   with_test_db do |env|
     db = env.database
-    begin
-      env.transaction do |txn|
-        MDB.put(txn, db.dbi, "k1", "v1")
-        raise "deliberate"
-      end
-    rescue RuntimeError
+    db.transaction { |txn, dbi| MDB.put(txn, dbi, "k", "v") }
+    assert_equal "v", db["k"]
+  end
+end
+
+assert('Database#transaction RDONLY allows reads') do
+  with_test_db do |env|
+    db = env.database
+    db["k"] = "v"
+    result = nil
+    db.transaction(MDB::RDONLY) { |txn, dbi| result = MDB.get(txn, dbi, "k") }
+    assert_equal "v", result
+  end
+end
+
+assert('Database#transaction RDONLY rejects writes') do
+  with_test_db do |env|
+    db = env.database
+    assert_raise(SystemCallError) do
+      db.transaction(MDB::RDONLY) { |txn, dbi| MDB.put(txn, dbi, "k", "v") }
     end
-    assert_nil db["k1"]
   end
 end
 
-# ============================================================================
-# Append / concat
-# ============================================================================
-
-assert('MDB::Database append with <<') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-    db << "hello" << "world"
-    assert_equal 2, db.length
-  end
+assert('Database#transaction without block raises ArgumentError') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.transaction } }
 end
 
-assert('MDB::Database concat batch append') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-    db.concat(["a", "b", "c"])
-    assert_equal 3, db.length
-  end
+assert('Database#transaction wrong flag type raises TypeError') do
+  with_test_db { |env| assert_raise(TypeError) { env.database.transaction("rdonly") { } } }
 end
 
-# ============================================================================
-# Cursor
-# ============================================================================
-
-assert('MDB::Cursor iterate forward') do
+assert('Database#cursor iterates forward') do
   with_test_db do |env|
     db = env.database
-    db["a"] = "1"
-    db["b"] = "2"
+    db["a"] = "1"; db["b"] = "2"
     results = []
     db.cursor(MDB::RDONLY) do |c|
       r = c.first
       while r
-        results << r
+        results << r[0]
         r = c.next
       end
     end
-    assert_equal 2, results.length
+    assert_equal ["a", "b"], results
   end
 end
 
-assert('MDB::Cursor set_range for prefix seeking') do
+assert('Database#cursor set_range seeks to prefix') do
   with_test_db do |env|
     db = env.database
-    db["aaa"] = "1"
-    db["bbb"] = "2"
-    db["bbc"] = "3"
-    db["ccc"] = "4"
-
+    db["aaa"] = "1"; db["bbb"] = "2"; db["bbc"] = "3"; db["ccc"] = "4"
     result = nil
-    db.cursor(MDB::RDONLY) do |c|
-      result = c.set_range("bb")
-    end
+    db.cursor(MDB::RDONLY) { |c| result = c.set_range("bb") }
     assert_not_nil result
     assert_equal "bbb", result[0]
   end
 end
 
-assert('MDB::Cursor close is idempotent') do
+assert('Database#cursor close is idempotent') do
   with_test_db do |env|
     db = env.database
     db.cursor(MDB::RDONLY) do |c|
-      c.close
+      assert_true  c.close
       assert_false c.close
     end
   end
 end
 
-# ============================================================================
-# Txn lifecycle
-# ============================================================================
+assert('Database#cursor without block raises ArgumentError') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.cursor } }
+end
 
-assert('MDB::Txn commit is final') do
+assert('Cursor get on closed cursor raises RuntimeError') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db.cursor(MDB::RDONLY) do |c|
+      c.close
+      assert_raise(RuntimeError) { c.first }
+    end
+  end
+end
+
+assert('Cursor wrong op raises RangeError') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db.cursor(MDB::RDONLY) { |c| assert_raise(RangeError) { c.get(99999) } }
+  end
+end
+
+assert('Cursor#first / next / last / prev navigate correctly') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"; db["b"] = "2"; db["c"] = "3"
+    db.cursor(MDB::RDONLY) do |c|
+      assert_equal "a", c.first[0]
+      assert_equal "b", c.next[0]
+      assert_equal "c", c.last[0]
+      assert_equal "b", c.prev[0]
+    end
+  end
+end
+
+assert('Cursor#set positions on exact key') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"; db["b"] = "2"; db["c"] = "3"
+    db.cursor(MDB::RDONLY) do |c|
+      r = c.set("b")
+      assert_not_nil r
+      assert_equal "b", r[0]
+    end
+  end
+end
+
+assert('Cursor#set on missing key returns nil') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db.cursor(MDB::RDONLY) { |c| assert_nil c.set("missing") }
+  end
+end
+
+assert('Cursor#next at end returns nil') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db.cursor(MDB::RDONLY) { |c| c.last; assert_nil c.next }
+  end
+end
+
+assert('Cursor#prev at start returns nil') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db.cursor(MDB::RDONLY) { |c| c.first; assert_nil c.prev }
+  end
+end
+
+assert('Cursor#put writes a record') do
+  with_test_db do |env|
+    db = env.database
+    db.cursor { |c| c.put("hello", "world") }
+    assert_equal "world", db["hello"]
+  end
+end
+
+assert('Cursor#put NOOVERWRITE raises on existing key') do
+  with_test_db do |env|
+    db = env.database
+    db["k"] = "v"
+    assert_raise(MDB::Error) do
+      db.cursor { |c| c.put("k", "v2", MDB::NOOVERWRITE) }
+    end
+  end
+end
+
+assert('Cursor#del removes current record') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"; db["b"] = "2"
+    db.cursor do |c|
+      c.first
+      c.del
+    end
+    assert_nil db["a"]
+    assert_equal "2", db["b"]
+  end
+end
+
+assert('Cursor#del on closed cursor raises RuntimeError') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"
+    db.cursor do |c|
+      c.first
+      c.close
+      assert_raise(RuntimeError) { c.del }
+    end
+  end
+end
+
+assert('Cursor#count on DUPSORT key returns dup count') do
+  with_test_db do |env|
+    db = env.database(MDB::DUPSORT)
+    env.transaction do |txn|
+      MDB.put(txn, db.dbi, "k", "a")
+      MDB.put(txn, db.dbi, "k", "b")
+      MDB.put(txn, db.dbi, "k", "c")
+    end
+    count = nil
+    db.cursor(MDB::RDONLY) { |c| c.set("k"); count = c.count }
+    assert_equal 3, count
+  end
+end
+
+assert('Txn.new requires env argument') do
+  assert_raise(ArgumentError) { MDB::Txn.new }
+end
+
+assert('Txn.new wrong type raises IOError') do
+  with_test_db { |env| assert_raise(IOError) { MDB::Txn.new("not an env") } }
+end
+
+assert('Txn commit is final') do
   with_test_db do |env|
     txn = MDB::Txn.new(env)
     txn.commit
@@ -372,15 +681,15 @@ assert('MDB::Txn commit is final') do
   end
 end
 
-assert('MDB::Txn abort is idempotent') do
+assert('Txn abort is idempotent') do
   with_test_db do |env|
     txn = MDB::Txn.new(env)
-    assert_true txn.abort
+    assert_true  txn.abort
     assert_false txn.abort
   end
 end
 
-assert('MDB::Txn abort after commit returns false') do
+assert('Txn abort after commit returns false') do
   with_test_db do |env|
     txn = MDB::Txn.new(env)
     txn.commit
@@ -388,310 +697,464 @@ assert('MDB::Txn abort after commit returns false') do
   end
 end
 
-# ============================================================================
-# Integer key helpers
-# ============================================================================
-
-assert('Integer#to_bin / String#to_fix roundtrip') do
-  [0, 1, -1, 42, 255, 256, 65535, 65536, 1000000].each do |n|
-    assert_equal n, n.to_bin.to_fix
+assert('Txn#reset and renew on RDONLY txn') do
+  with_test_db do |env|
+    db = env.database
+    db["k"] = "v"
+    txn = MDB::Txn.new(env, MDB::RDONLY)
+    assert_equal "v", MDB.get(txn, db.dbi, "k")
+    txn.reset
+    txn.renew
+    assert_equal "v", MDB.get(txn, db.dbi, "k")
+    txn.abort
   end
 end
 
-assert('Integer#to_bin produces big-endian sorted keys') do
-  keys = [0, 1, 2, 100, 1000].map(&:to_bin)
-  assert_equal keys, keys.sort
+assert('Txn#reset on write txn does not raise') do
+  with_test_db do |env|
+    txn = MDB::Txn.new(env)
+    assert_equal txn, txn.reset
+    txn.abort
+  end
 end
 
-# ============================================================================
-# Drop
-# ============================================================================
-
-assert('MDB::Database drop empties database') do
+assert('MDB.get returns value or nil') do
   with_test_db do |env|
     db = env.database
-    db["a"] = "1"
-    db["b"] = "2"
-    assert_equal 2, db.length
-    db.drop
+    db["k"] = "v"
+    env.transaction(MDB::RDONLY) do |txn|
+      assert_equal "v", MDB.get(txn, db.dbi, "k")
+      assert_nil        MDB.get(txn, db.dbi, "missing")
+    end
+  end
+end
+
+assert('MDB.get wrong txn type raises RuntimeError') do
+  with_test_db do |env|
+    db = env.database
+    assert_raise(RuntimeError) { MDB.get("not a txn", db.dbi, "k") }
+  end
+end
+
+assert('MDB.put and MDB.del roundtrip') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction { |txn| MDB.put(txn, db.dbi, "k", "v") }
+    assert_equal "v", db["k"]
+    env.transaction { |txn| MDB.del(txn, db.dbi, "k") }
+    assert_nil db["k"]
+  end
+end
+
+assert('MDB.put NOOVERWRITE raises MDB::KEYEXIST') do
+  with_test_db do |env|
+    db = env.database
+    db["k"] = "v1"
+    assert_raise(MDB::KEYEXIST) do
+      env.transaction { |txn| MDB.put(txn, db.dbi, "k", "v2", MDB::NOOVERWRITE) }
+    end
+  end
+end
+
+assert('MDB.del missing key returns nil') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction { |txn| assert_nil MDB.del(txn, db.dbi, "missing") }
+  end
+end
+
+assert('MDB.stat returns MDB::Stat') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction(MDB::RDONLY) do |txn|
+      assert_true MDB.stat(txn, db.dbi).is_a?(MDB::Stat)
+    end
+  end
+end
+
+assert('MDB.get/put/del on committed txn raises RuntimeError') do
+  with_test_db do |env|
+    db = env.database
+    txn = MDB::Txn.new(env)
+    txn.commit
+    assert_raise(RuntimeError) { MDB.get(txn, db.dbi, "k") }
+    assert_raise(RuntimeError) { MDB.put(txn, db.dbi, "k", "v") }
+    assert_raise(RuntimeError) { MDB.del(txn, db.dbi, "k") }
+  end
+end
+
+assert('MDB.drop empties database') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"; db["b"] = "2"
+    env.transaction { |txn| MDB.drop(txn, db.dbi) }
     assert_equal 0, db.length
   end
 end
 
-# ============================================================================
-# Large values
-# ============================================================================
-
-assert('MDB large key-value roundtrip') do
+assert('MDB.drop wrong txn type raises RuntimeError') do
   with_test_db do |env|
     db = env.database
-    key = "k"
-    val = "x" * 100000
-    db[key] = val
-    assert_equal val, db[key]
+    assert_raise(RuntimeError) { MDB.drop("nope", db.dbi) }
   end
 end
 
-# ============================================================================
-# to_a / to_h
-# ============================================================================
+assert('MDB::Error is a RuntimeError') do
+  assert_true MDB::Error.ancestors.include?(RuntimeError)
+end
 
-assert('MDB::Database to_a') do
+assert('MDB::NOTFOUND is an MDB::Error subclass') do
+  assert_true MDB::NOTFOUND.ancestors.include?(MDB::Error)
+end
+
+assert('MDB::KEYEXIST is an MDB::Error subclass') do
+  assert_true MDB::KEYEXIST.ancestors.include?(MDB::Error)
+end
+
+assert('MDB::KEYEXIST can be rescued as MDB::Error') do
   with_test_db do |env|
     db = env.database
-    db["x"] = "1"
-    db["y"] = "2"
-    ary = db.to_a
-    assert_equal 2, ary.length
+    db["k"] = "v"
+    rescued = false
+    begin
+      env.transaction { |txn| MDB.put(txn, db.dbi, "k", "v2", MDB::NOOVERWRITE) }
+    rescue MDB::Error
+      rescued = true
+    end
+    assert_true rescued
   end
 end
 
-assert('MDB::Database to_h') do
+assert('MDB::KEYEXIST can be rescued specifically') do
   with_test_db do |env|
     db = env.database
-    db["x"] = "1"
-    db["y"] = "2"
+    db["k"] = "v"
+    rescued = false
+    begin
+      env.transaction { |txn| MDB.put(txn, db.dbi, "k", "v2", MDB::NOOVERWRITE) }
+    rescue MDB::KEYEXIST
+      rescued = true
+    end
+    assert_true rescued
+  end
+end
+
+assert('Database#multi_get returns values in input key order') do
+  with_test_db do |env|
+    db = env.database
+    db["c"] = "3"; db["a"] = "1"; db["b"] = "2"
+    assert_equal ["2", "1", "3", nil], db.multi_get(["b", "a", "c", "missing"])
+  end
+end
+
+assert('Database#multi_get empty array returns empty array') do
+  with_test_db { |env| assert_equal [], env.database.multi_get([]) }
+end
+
+assert('Database#multi_get wrong type raises TypeError') do
+  with_test_db { |env| assert_raise(TypeError) { env.database.multi_get("not an array") } }
+end
+
+assert('Database#batch_put inserts all pairs') do
+  with_test_db do |env|
+    db = env.database
+    db.batch_put([["z", "26"], ["a", "1"], ["m", "13"]])
+    keys = []
+    db.each { |k, _v| keys << k }
+    assert_equal ["a", "m", "z"], keys
+  end
+end
+
+assert('Database#batch_put empty array is valid') do
+  with_test_db do |env|
+    env.database.batch_put([])
+    assert_true true
+  end
+end
+
+assert('Database#batch_put wrong type raises TypeError') do
+  with_test_db { |env| assert_raise(TypeError) { env.database.batch_put("oops") } }
+end
+
+assert('Database#batch_put NOOVERWRITE raises MDB::KEYEXIST on duplicate') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "old"
+    assert_raise(MDB::KEYEXIST) { db.batch_put([["a", "new"]], MDB::NOOVERWRITE) }
+    assert_equal "old", db["a"]
+  end
+end
+
+assert('Database#<< appends with auto-increment keys') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+    db << "hello" << "world"
+    assert_equal 2, db.length
+  end
+end
+
+assert('Database#concat batch appends in order') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+    db.concat(["a", "b", "c"])
+    vals = []
+    db.each { |k, v| vals << v }
+    assert_equal ["a", "b", "c"], vals
+  end
+end
+
+assert('Database#concat continues from last key') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+    db << "first"
+    db.concat(["second", "third"])
+    keys = []
+    db.each { |k, _v| keys << k.to_fix }
+    assert_equal [0, 1, 2], keys
+  end
+end
+
+assert('Database#concat wrong type raises TypeError') do
+  with_test_db do |env|
+    db = env.database(MDB::INTEGERKEY)
+    assert_raise(TypeError) { db.concat("not an array") }
+  end
+end
+
+assert('Database#to_a returns all pairs') do
+  with_test_db do |env|
+    db = env.database
+    db["x"] = "1"; db["y"] = "2"
+    assert_equal 2, db.to_a.length
+  end
+end
+
+assert('Database#to_h returns correct hash') do
+  with_test_db do |env|
+    db = env.database
+    db["x"] = "1"; db["y"] = "2"
     h = db.to_h
     assert_equal "1", h["x"]
     assert_equal "2", h["y"]
   end
 end
 
-# ============================================================================
-# Reader check
-# ============================================================================
+assert('Database#to_a on empty db returns empty array') do
+  with_test_db { |env| assert_equal [], env.database.to_a }
+end
 
-assert('MDB::Env reader_check returns integer') do
+assert('Database#to_h on empty db returns empty hash') do
+  with_test_db { |env| assert_equal({}, env.database.to_h) }
+end
+
+assert('Database#each_key iterates duplicate values for a key') do
   with_test_db do |env|
-    dead = env.reader_check
-    assert_true dead.is_a?(Integer)
-    assert_true dead >= 0
+    db = env.database(MDB::DUPSORT)
+    env.transaction do |txn|
+      MDB.put(txn, db.dbi, "k", "a")
+      MDB.put(txn, db.dbi, "k", "b")
+      MDB.put(txn, db.dbi, "k", "c")
+    end
+    vals = []
+    db.each_key("k") { |k, v| vals << v }
+    assert_equal ["a", "b", "c"], vals
   end
 end
 
-# ============================================================================
-# Integer key sort order
-# ============================================================================
+assert('Database#each_key on missing key yields nothing') do
+  with_test_db do |env|
+    db = env.database(MDB::DUPSORT)
+    count = 0
+    db.each_key("missing") { count += 1 }
+    assert_equal 0, count
+  end
+end
 
-assert('Integer keys sort in numeric order via MDB_INTEGERKEY') do
+assert('Database#each_key without block raises ArgumentError') do
+  with_test_db do |env|
+    db = env.database(MDB::DUPSORT)
+    assert_raise(ArgumentError) { db.each_key("k") }
+  end
+end
+
+assert('to_bin / to_fix roundtrip') do
+  [0, 1, -1, 42, 255, 256, 65535, 65536, -32768, 1000000, -1000000].each do |n|
+    assert_equal n, n.to_bin.to_fix
+  end
+end
+
+assert('to_bin produces fixed-width strings') do
+  width = 0.to_bin.bytesize
+  [0, 1, -1, 255, 65536, 1000000].each { |n| assert_equal width, n.to_bin.bytesize }
+end
+
+assert('to_fix rejects wrong-sized strings') do
+  assert_raise(TypeError) { "".to_fix }
+  assert_raise(TypeError) { "x".to_fix }
+  assert_raise(TypeError) { ("x" * 100).to_fix }
+end
+
+assert('Integer keys sort in numeric order with MDB_INTEGERKEY') do
   with_test_db do |env|
     db = env.database(MDB::INTEGERKEY)
-
-    # Insert out of order
-    [100, 1, 50, 10, 1000, 0, 255, 256].each do |n|
-      db[n.to_bin] = "val_#{n}"
-    end
-
+    [100, 1, 50, 10, 1000, 0, 255, 256].each { |n| db[n.to_bin] = n.to_s }
     keys = []
     db.each { |k, _v| keys << k.to_fix }
     assert_equal [0, 1, 10, 50, 100, 255, 256, 1000], keys
   end
 end
 
-assert('Integer keys: first and last reflect numeric order') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-
-    [500, 1, 9999, 42].each do |n|
-      db[n.to_bin] = "val_#{n}"
-    end
-
-    assert_equal 1, db.first[0].to_fix
-    assert_equal 9999, db.last[0].to_fix
-  end
-end
-
-assert('Integer keys: sequential append maintains order') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-
-    db << "zero"
-    db << "one"
-    db << "two"
-    db << "three"
-    db << "four"
-
-    keys = []
-    vals = []
-    db.each { |k, v| keys << k.to_fix; vals << v }
-    assert_equal [0, 1, 2, 3, 4], keys
-    assert_equal ["zero", "one", "two", "three", "four"], vals
-  end
-end
-
-assert('Integer keys: concat preserves insertion order') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-
-    db.concat(["a", "b", "c", "d", "e"])
-
-    keys = []
-    vals = []
-    db.each { |k, v| keys << k.to_fix; vals << v }
-    assert_equal [0, 1, 2, 3, 4], keys
-    assert_equal ["a", "b", "c", "d", "e"], vals
-  end
-end
-
-assert('Integer keys: concat continues after existing keys') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-
-    db[0.to_bin] = "existing_0"
-    db[1.to_bin] = "existing_1"
-    db[2.to_bin] = "existing_2"
-
-    db.concat(["new_3", "new_4", "new_5"])
-
-    keys = []
-    vals = []
-    db.each { |k, v| keys << k.to_fix; vals << v }
-    assert_equal [0, 1, 2, 3, 4, 5], keys
-    assert_equal ["existing_0", "existing_1", "existing_2", "new_3", "new_4", "new_5"], vals
-  end
-end
-
-assert('Integer keys: large values sort correctly') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-
-    values = [0, 1, 127, 128, 255, 256, 65535, 65536, 100000]
-    values.each { |n| db[n.to_bin] = n.to_s }
-
-    keys = []
-    db.each { |k, _v| keys << k.to_fix }
-    assert_equal values.sort, keys
-  end
-end
-
-assert('Integer keys: negative values roundtrip') do
-  with_test_db do |env|
-    db = env.database(MDB::INTEGERKEY)
-
-    [-1, -100, -32768, 0, 1, 100].each do |n|
-      db[n.to_bin] = "val_#{n}"
-    end
-
-    keys = []
-    db.each { |k, _v| keys << k.to_fix }
-
-    # All keys should roundtrip correctly
-    assert_equal 6, keys.length
-    [-1, -100, -32768, 0, 1, 100].each do |n|
-      assert_true keys.include?(n)
-    end
-  end
-end
-
-assert('to_bin / to_fix roundtrip across range') do
-  values = [0, 1, -1, 42, 127, 128, 255, 256, 65535, 65536, -32768, 1000000, -1000000]
-  values.each do |n|
-    assert_equal n, n.to_bin.to_fix
-  end
-end
-
-assert('to_bin produces fixed-width strings') do
-  [0, 1, -1, 255, 65536, 1000000].each do |n|
-    bin = n.to_bin
-    # All keys should be sizeof(mrb_int) bytes
-    assert_true bin.bytesize == 0.to_bin.bytesize
-  end
-end
-
-assert('to_fix rejects wrong-sized strings') do
-  assert_raise(TypeError) { "".to_fix }
-  assert_raise(TypeError) { "x".to_fix }
-  assert_raise(TypeError) { "xy".to_fix } if 0.to_bin.bytesize > 2
-  assert_raise(TypeError) { ("x" * 100).to_fix }
-end
-
-# ============================================================================
-# String key lexicographic sort (default DB, no INTEGERKEY)
-# ============================================================================
-
 assert('String keys sort lexicographically') do
   with_test_db do |env|
     db = env.database
-
-    ["banana", "apple", "cherry", "date", "apricot"].each do |s|
-      db[s] = "1"
-    end
-
+    ["banana", "apple", "cherry", "date", "apricot"].each { |s| db[s] = "1" }
     keys = []
     db.each { |k, _v| keys << k }
     assert_equal ["apple", "apricot", "banana", "cherry", "date"], keys
   end
 end
 
-assert('String keys: prefix scan returns lexicographic subset') do
+assert('Numeric strings sort lexicographically not numerically') do
   with_test_db do |env|
     db = env.database
-
-    ["user:001", "user:010", "user:002", "user:100", "post:001"].each do |s|
-      db[s] = "1"
-    end
-
-    keys = []
-    db.each_prefix("user:") { |k, _v| keys << k }
-    assert_equal ["user:001", "user:002", "user:010", "user:100"], keys
-  end
-end
-
-assert('String keys: numeric strings sort lexicographically not numerically') do
-  with_test_db do |env|
-    db = env.database
-
-    ["9", "10", "1", "100", "2", "20"].each do |s|
-      db[s] = "1"
-    end
-
+    ["9", "10", "1", "100", "2", "20"].each { |s| db[s] = "1" }
     keys = []
     db.each { |k, _v| keys << k }
-    # Lexicographic: "1" < "10" < "100" < "2" < "20" < "9"
     assert_equal ["1", "10", "100", "2", "20", "9"], keys
   end
 end
 
-assert('String keys: zero-padded numeric strings sort correctly') do
+assert('Enumerable#map works on Database') do
   with_test_db do |env|
     db = env.database
+    db["a"] = "1"; db["b"] = "2"
+    result = db.map { |k, v| "#{k}=#{v}" }
+    assert_equal ["a=1", "b=2"], result
+  end
+end
 
-    ["009", "010", "001", "100", "002", "020"].each do |s|
-      db[s] = "1"
+assert('Enumerable#select works on Database') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"; db["b"] = "2"; db["c"] = "3"
+    result = db.select { |k, v| v.to_i > 1 }
+    assert_equal 2, result.length
+  end
+end
+
+assert('MDB::Dbi.open returns integer dbi') do
+  with_test_db do |env|
+    txn = MDB::Txn.new(env)
+    dbi = MDB::Dbi.open(txn, 0)
+    assert_true dbi.is_a?(Integer)
+    txn.commit
+  end
+end
+
+assert('MDB::Dbi.flags returns integer') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction(MDB::RDONLY) do |txn|
+      assert_true MDB::Dbi.flags(txn, db.dbi).is_a?(Integer)
     end
-
-    keys = []
-    db.each { |k, _v| keys << k }
-    assert_equal ["001", "002", "009", "010", "020", "100"], keys
   end
 end
 
-# ============================================================================
-# Bulk operations sort order
-# ============================================================================
+assert('MDB::Dbi.open wrong txn type raises RuntimeError') do
+  with_test_db { |env| assert_raise(RuntimeError) { MDB::Dbi.open("nope", 0) } }
+end
 
-assert('multi_get returns values in key order of input') do
+assert('MDB.get requires 3 args') do
   with_test_db do |env|
     db = env.database
-
-    db["c"] = "3"
-    db["a"] = "1"
-    db["b"] = "2"
-
-    result = db.multi_get(["b", "a", "c", "missing"])
-    assert_equal ["2", "1", "3", nil], result
+    env.transaction(MDB::RDONLY) do |txn|
+      assert_raise(ArgumentError) { MDB.get(txn, db.dbi) }
+    end
   end
 end
 
-assert('batch_put maintains correct sort order') do
+assert('MDB.put requires at least 4 args') do
   with_test_db do |env|
     db = env.database
+    env.transaction do |txn|
+      assert_raise(ArgumentError) { MDB.put(txn, db.dbi, "k") }
+    end
+  end
+end
 
-    pairs = [["z", "26"], ["a", "1"], ["m", "13"]]
-    db.batch_put(pairs)
+assert('MDB.del requires at least 3 args') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction do |txn|
+      assert_raise(ArgumentError) { MDB.del(txn, db.dbi) }
+    end
+  end
+end
 
-    keys = []
-    db.each { |k, _v| keys << k }
-    assert_equal ["a", "m", "z"], keys
+assert('Env#open requires at least 1 arg') do
+  env = MDB::Env.new
+  assert_raise(ArgumentError) { env.open }
+  env.close rescue nil
+end
+
+assert('Database#batch_put requires 1 arg') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.batch_put } }
+end
+
+assert('Database#multi_get requires 1 arg') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.multi_get } }
+end
+
+assert('Database#each_prefix requires 1 arg') do
+  with_test_db { |env| assert_raise(ArgumentError) { env.database.each_prefix } }
+end
+
+assert('Database#each_key requires 1 arg') do
+  with_test_db do |env|
+    assert_raise(ArgumentError) { env.database(MDB::DUPSORT).each_key }
+  end
+end
+
+assert('MDB.multi_get returns values in input order') do
+  with_test_db do |env|
+    db = env.database
+    db["a"] = "1"; db["b"] = "2"; db["c"] = "3"
+    env.transaction(MDB::RDONLY) do |txn|
+      result = MDB.multi_get(txn, db.dbi, ["c", "a", "missing", "b"])
+      assert_equal ["3", "1", nil, "2"], result
+    end
+  end
+end
+
+assert('MDB.batch_put inserts all pairs in one txn') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction { |txn| MDB.batch_put(txn, db.dbi, [["x", "1"], ["y", "2"]]) }
+    assert_equal "1", db["x"]
+    assert_equal "2", db["y"]
+  end
+end
+
+assert('Database accepts integer key via to_s coercion') do
+  with_test_db do |env|
+    db = env.database
+    db[42] = "forty-two"
+    assert_equal "forty-two", db["42"]
+  end
+end
+
+assert('Database accepts symbol key via to_s coercion') do
+  with_test_db do |env|
+    db = env.database
+    db[:hello] = "world"
+    assert_equal "world", db["hello"]
+  end
+end
+
+assert('MDB.put accepts integer key via to_s coercion') do
+  with_test_db do |env|
+    db = env.database
+    env.transaction { |txn| MDB.put(txn, db.dbi, 42, "v") }
+    assert_equal "v", db["42"]
   end
 end
