@@ -20,6 +20,13 @@
 #include <mruby/branch_pred.h>
 #include <mruby/num_helpers.h>
 
+/* ── Database handle: env + dbi pair ─────────────────────────────────────── */
+
+typedef struct mrb_mdb_database {
+  MDB_env *env;
+  MDB_dbi  dbi;
+} mrb_mdb_database_t;
+
 /* ── Data type descriptors ────────────────────────────────────────────────── */
 
 static void mrb_mdb_env_free(mrb_state *mrb, void *p) {
@@ -34,6 +41,11 @@ static void mrb_mdb_cursor_free(mrb_state *mrb, void *p) {
   if (p) mdb_cursor_close((MDB_cursor *)p);
 }
 
+static void mrb_mdb_database_free(mrb_state *mrb, void *p) {
+  /* env is owned by the Env object; we do not close it here */
+  mrb_free(mrb, p);
+}
+
 static const struct mrb_data_type mdb_env_type = {
   "MDB::Env", mrb_mdb_env_free,
 };
@@ -46,25 +58,23 @@ static const struct mrb_data_type mdb_cursor_type = {
   "MDB::Cursor", mrb_mdb_cursor_free,
 };
 
-/* ── Cached class pointers (set during gem_init) ─────────────────────────── */
+static const struct mrb_data_type mdb_database_type = {
+  "MDB::Database", mrb_mdb_database_free,
+};
 
-
-/* IOError for closed handles — same as Ruby's IO raises on closed streams.
- * mruby-io defines E_IO_ERROR; if it's not present we fall back to RuntimeError. */
+/* IOError for closed handles */
 #ifndef E_IO_ERROR
 #define E_IO_ERROR (mrb_exc_get(mrb, "IOError"))
 #endif
 
-/* ── Error handling: only called on error path, never on success ─────────── */
+/* ── Error handling ───────────────────────────────────────────────────────── */
 
 mrb_noreturn static void
 mrb_mdb_raise(mrb_state *mrb, int rc, const char *func)
 {
   if (rc > 0) {
-    /* POSIX errno */
     mrb_sys_fail(mrb, func);
   }
-  /* Negative rc: LMDB-specific error */
   struct RClass *mdb_error = mrb_class_get_under_id(mrb,
     mrb_module_get_id(mrb, MRB_SYM(MDB)), MRB_SYM(Error));
   mrb_value error2class = mrb_const_get(mrb,
@@ -102,6 +112,15 @@ mrb_mdb_cursor_get(mrb_state *mrb, mrb_value self)
   if (likely(p))
     return p;
   mrb_raise(mrb, E_RUNTIME_ERROR, "closed MDB::Cursor");
+}
+
+static mrb_mdb_database_t *
+mrb_mdb_database_get(mrb_state *mrb, mrb_value self)
+{
+  mrb_mdb_database_t *p = (mrb_mdb_database_t *)mrb_data_check_get_ptr(mrb, self, &mdb_database_type);
+  if (likely(p))
+    return p;
+  mrb_raise(mrb, E_RUNTIME_ERROR, "closed MDB::Database");
 }
 
 /* ── Range validation helpers ─────────────────────────────────────────────── */
