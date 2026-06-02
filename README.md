@@ -49,8 +49,6 @@ These examples use the **actual fastest paths**:
 - `.multi_get` for bulk reads
 - `.batch_put` for bulk writes
 
-No magic. No wrappers. No abstractions you don’t have.
-
 ---
 
 ## **Open an environment and database**
