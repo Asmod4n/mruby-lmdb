@@ -169,7 +169,9 @@ end
 assert('Env#transaction RDONLY rejects writes') do
   with_test_db do |env|
     db = env.database
-    assert_raise(SystemCallError) do
+    # MDB_IS_READONLY is one of LMDB's OWN codes, not an errno, so it
+    # arrives as an MDB::Error subclass and never as a SystemCallError.
+    assert_raise(MDB::IS_READONLY) do
       env.transaction(MDB::RDONLY) { |txn| MDB.put(txn, db.dbi, "k", "v") }
     end
   end
@@ -485,7 +487,7 @@ end
 assert('Database#transaction RDONLY rejects writes') do
   with_test_db do |env|
     db = env.database
-    assert_raise(SystemCallError) do
+    assert_raise(MDB::IS_READONLY) do
       db.transaction(MDB::RDONLY) { |txn, dbi| MDB.put(txn, dbi, "k", "v") }
     end
   end
