@@ -28,14 +28,28 @@ end
 
 abort "found no error codes in #{HEADER} - has the header changed shape?" if names.empty?
 
-File.open('known_errors_def.cstub', 'w') do |d|
-  names.each { |name| d.write(%(mrb_lmdb_define_error(MDB_#{name}, "#{name}");\n)) }
+# Written only when the bytes differ. mrbgem.rake runs this script on
+# every `rake compile`, and an unconditional write gives both files a
+# new mtime even when the list is the same. src/mrb_lmdb.c includes the
+# cstub, so mrb_lmdb.o recompiled on every single run, on a tree where
+# nothing had changed. Measured from webmachine-mruby, which carries
+# this gem: one object per idle build.
+#
+# The comparison is on CONTENT, so the derivation still holds. When the
+# lmdb submodule moves and brings new codes, the bytes differ, the file
+# is written, and the rebuild follows - which is the whole reason this
+# list is derived and never maintained.
+def write_if_changed(path, content)
+  return if File.exist?(path) && File.binread(path) == content
+  File.binwrite(path, content)
 end
 
+write_if_changed('known_errors_def.cstub',
+                 names.map { |name| %(mrb_lmdb_define_error(MDB_#{name}, "#{name}");\n) }.join)
+
 # Kept for readability and for anyone diffing what the header offered.
-File.open('known_errors.def', 'w') do |d|
-  d.write("# GENERATED from lmdb.h by gen_errors.rb - do not edit by hand.\n")
-  names.each { |name| d.write("#{name}\n") }
-end
+write_if_changed('known_errors.def',
+                 "# GENERATED from lmdb.h by gen_errors.rb - do not edit by hand.\n" +
+                 names.map { |name| "#{name}\n" }.join)
 
 puts "#{names.size} error codes from #{HEADER}"
